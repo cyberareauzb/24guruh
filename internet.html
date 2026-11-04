@@ -1,1 +1,144 @@
 
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bayt ovchisi</title>
+<style>
+  html, body { margin: 0; height: 100%; font-family: system-ui, sans-serif; background: #0f172a; color: #f8fafc; }
+  #wrap { position: relative; height: 100%; }
+  canvas { display: block; width: 100%; height: 100%; touch-action: manipulation; }
+  #hud { position: absolute; top: 10px; left: 12px; right: 12px; display: flex; gap: 12px; font-size: 16px; pointer-events: none; }
+  #hud b { color: #fde047; }
+  #overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; background: rgba(15,23,42,.88); text-align: center; padding: 16px; }
+  #overlay h1 { margin: 0; font-size: 32px; }
+  #overlay p { margin: 0; max-width: 520px; color: #cbd5e1; }
+  button { font: inherit; font-weight: 600; padding: 10px 22px; border: 0; border-radius: 10px; background: #2563eb; color: #fff; cursor: pointer; }
+  button:focus-visible { outline: 3px solid #fde047; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="c" aria-label="O'yin maydoni"></canvas>
+  <div id="hud"><span>Savol: <b id="q"></b></span><span style="margin-left:auto">Ball: <b id="s">0</b>/10</span></div>
+  <div id="overlay">
+    <h1>Bayt ovchisi</h1>
+    <p>Yuqoridan javoblar tushadi. Savolga mos to'g'ri javobni bosing. 10 ta savol. Eslatma: 1 bayt = 8 bit, 1 KB = 1024 bayt, 1 MB = 1024 KB.</p>
+    <button id="start">Boshlash</button>
+  </div>
+</div>
+<script>
+// Platforma bilan shartnoma: natija faqat shu xabar orqali yuboriladi.
+function sendResult(score, max) {
+  parent.postMessage({ type: 'axvcl:result', score: score, max: max }, '*');
+}
+
+const QUESTIONS = [
+  { q: '1 bayt = ? bit', a: '8', w: ['10', '1024', '16'] },
+  { q: '2 bayt = ? bit', a: '16', w: ['8', '20', '2048'] },
+  { q: '1 KB = ? bayt', a: '1024', w: ['1000', '8', '100'] },
+  { q: '2 KB = ? bayt', a: '2048', w: ['2000', '1024', '16'] },
+  { q: '1 MB = ? KB', a: '1024', w: ['1000', '8', '512'] },
+  { q: '1 GB = ? MB', a: '1024', w: ['1000', '100', '2048'] },
+  { q: '1 TB = ? GB', a: '1024', w: ['1000', '8', '10'] },
+  { q: '16 bit = ? bayt', a: '2', w: ['16', '8', '4'] },
+  { q: '3 KB = ? bayt', a: '3072', w: ['3000', '3024', '24'] },
+  { q: 'Eng kichik birlik?', a: 'bit', w: ['bayt', 'KB', 'GB'] },
+  { q: 'Eng katta birlik?', a: 'TB', w: ['GB', 'MB', 'KB'] },
+  { q: '512 KB = ? MB', a: '0.5', w: ['5', '512', '2'] },
+];
+
+const c = document.getElementById('c');
+const ctx = c.getContext('2d');
+const qEl = document.getElementById('q');
+const sEl = document.getElementById('s');
+const overlay = document.getElementById('overlay');
+let W = 0, H = 0, dpr = 1;
+let round = 0, score = 0, items = [], deck = [], running = false, flash = null, last = 0;
+
+function resize() {
+  dpr = window.devicePixelRatio || 1;
+  W = c.clientWidth; H = c.clientHeight;
+  c.width = W * dpr; c.height = H * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+window.addEventListener('resize', resize);
+
+function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+
+function nextRound() {
+  if (round >= 10) return finish();
+  const q = deck[round];
+  qEl.textContent = q.q;
+  const answers = shuffle([q.a, ...q.w]);
+  const lane = W / answers.length;
+  items = answers.map((text, i) => ({ text, ok: text === q.a, x: lane * i + lane / 2, y: -40 - Math.random() * 120, r: Math.min(46, lane / 2 - 6) }));
+}
+
+function pick(x, y) {
+  if (!running) return;
+  const hit = items.find((it) => Math.hypot(it.x - x, it.y - y) < it.r + 6);
+  if (!hit) return;
+  if (hit.ok) score++;
+  flash = { ok: hit.ok, t: 30, text: hit.ok ? "To'g'ri!" : "Javob: " + deck[round].a };
+  sEl.textContent = score;
+  round++;
+  nextRound();
+}
+
+c.addEventListener('pointerdown', (e) => { const r = c.getBoundingClientRect(); pick(e.clientX - r.left, e.clientY - r.top); });
+// Klaviatura: 1–4 raqamlari chapdan o'ngga javoblarni tanlaydi.
+window.addEventListener('keydown', (e) => {
+  const n = Number(e.key);
+  if (running && n >= 1 && n <= items.length) { const it = [...items].sort((a, b) => a.x - b.x)[n - 1]; pick(it.x, it.y); }
+});
+
+function loop(t) {
+  if (!running) return;
+  const dt = Math.min(50, t - (last || t)); last = t;
+  ctx.clearRect(0, 0, W, H);
+  const speed = 0.06 + round * 0.006;
+  for (const it of items) {
+    it.y += speed * dt;
+    ctx.beginPath(); ctx.arc(it.x, it.y, it.r, 0, Math.PI * 2);
+    ctx.fillStyle = '#1e40af'; ctx.fill();
+    ctx.lineWidth = 3; ctx.strokeStyle = '#60a5fa'; ctx.stroke();
+    ctx.fillStyle = '#fff'; ctx.font = '600 18px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(it.text, it.x, it.y);
+  }
+  if (items.some((it) => it.y - it.r > H)) {
+    flash = { ok: false, t: 30, text: 'Vaqt tugadi! Javob: ' + deck[round].a };
+    round++; nextRound();
+  }
+  if (flash && flash.t-- > 0) {
+    ctx.fillStyle = flash.ok ? '#22c55e' : '#f87171'; ctx.font = '700 26px system-ui'; ctx.textAlign = 'center';
+    ctx.fillText(flash.text, W / 2, H - 30);
+  }
+  requestAnimationFrame(loop);
+}
+
+function start() {
+  resize();
+  deck = shuffle(QUESTIONS.slice()).slice(0, 10);
+  round = 0; score = 0; sEl.textContent = '0'; flash = null; last = 0;
+  overlay.style.display = 'none';
+  running = true;
+  nextRound();
+  requestAnimationFrame(loop);
+}
+
+function finish() {
+  running = false;
+  sendResult(score, 10);
+  overlay.style.display = 'flex';
+  overlay.querySelector('h1').textContent = 'Natija: ' + score + ' / 10';
+  overlay.querySelector('p').textContent = score >= 8 ? "Zo'r! O'lchov birliklarini yaxshi bilasiz." : "Yana bir bor urinib ko'ring: 1 KB = 1024 bayt ekanini unutmang.";
+  document.getElementById('start').textContent = 'Qayta o\'ynash';
+}
+
+document.getElementById('start').addEventListener('click', start);
+resize();
+</script>
+</body>
+</html>
