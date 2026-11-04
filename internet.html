@@ -1,144 +1,1505 @@
-
 <!doctype html>
 <html lang="uz">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Bayt ovchisi</title>
+<title>Internet qanday ishlaydi?</title>
 <style>
-  html, body { margin: 0; height: 100%; font-family: system-ui, sans-serif; background: #0f172a; color: #f8fafc; }
-  #wrap { position: relative; height: 100%; }
-  canvas { display: block; width: 100%; height: 100%; touch-action: manipulation; }
-  #hud { position: absolute; top: 10px; left: 12px; right: 12px; display: flex; gap: 12px; font-size: 16px; pointer-events: none; }
-  #hud b { color: #fde047; }
-  #overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; background: rgba(15,23,42,.88); text-align: center; padding: 16px; }
-  #overlay h1 { margin: 0; font-size: 32px; }
-  #overlay p { margin: 0; max-width: 520px; color: #cbd5e1; }
-  button { font: inherit; font-weight: 600; padding: 10px 22px; border: 0; border-radius: 10px; background: #2563eb; color: #fff; cursor: pointer; }
-  button:focus-visible { outline: 3px solid #fde047; }
+  :root {
+    --ink: #1c2442; --muted: #5a6484; --line: #dde3ee; --paper: #ffffff; --soft: #f2f5fb;
+    --brand: #4f46e5; --brand-soft: #e8e7fd; --good: #0f8a6d; --good-soft: #dbf5ec;
+    --bad: #d13c3c; --bad-soft: #fde5e3; --amber: #b86e00; --amber-soft: #fff1d6;
+    --pw: 430px; --top: 60px;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0b1533; color: var(--ink);
+    font-family: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif; font-size: 17px; line-height: 1.45; }
+  canvas#c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
+  canvas#c.drag { cursor: grabbing; } canvas#c.point { cursor: pointer; }
+  button, input { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  :focus-visible { outline: 3px solid #f5a524; outline-offset: 2px; }
+
+  #top { position: fixed; top: 0; left: 0; right: 0; height: var(--top); display: flex; align-items: center; gap: 14px;
+    padding: 0 14px; background: rgba(255,255,255,.94); border-bottom: 1px solid var(--line); z-index: 5; }
+  #top strong { font-size: 18px; white-space: nowrap; }
+  #steps { display: flex; gap: 4px; margin-left: auto; overflow-x: auto; scrollbar-width: none; }
+  #steps button { display: flex; align-items: center; gap: 6px; border: 0; background: none; border-radius: 10px;
+    padding: 6px 9px; font-size: 14.5px; font-weight: 600; color: var(--muted); white-space: nowrap; }
+  #steps button i { font-style: normal; width: 25px; height: 25px; border-radius: 50%; background: var(--soft); color: var(--muted);
+    display: grid; place-items: center; font-size: 13.5px; font-weight: 700; }
+  #steps button:hover { background: var(--soft); }
+  #steps button.on { color: var(--brand); background: var(--brand-soft); }
+  #steps button.on i { background: var(--brand); color: #fff; }
+  #steps button.ok i { background: var(--good); color: #fff; }
+
+  #panel { position: fixed; top: var(--top); right: 0; bottom: 0; width: var(--pw); background: var(--paper);
+    border-left: 1px solid var(--line); overflow-y: auto; padding: 20px 22px 18px; z-index: 4; display: flex; flex-direction: column; gap: 13px; }
+  #panel .eyebrow { font-size: 14px; font-weight: 700; color: var(--brand); letter-spacing: .02em; }
+  #panel h2 { margin: -8px 0 0; font-size: 27px; line-height: 1.16; letter-spacing: -.01em; }
+  #panel h3 { margin: 8px 0 -4px; font-size: 16px; font-weight: 700; }
+  #panel p { margin: 0; }
+  .note { padding: 10px 13px; border-radius: 12px; background: var(--amber-soft); color: #6d4300; font-size: 16px; }
+  .note b { color: #5a3700; }
+  .fb { padding: 10px 13px; border-radius: 12px; font-size: 16px; background: var(--soft); }
+  .fb.good { background: var(--good-soft); color: #075d49; } .fb.bad { background: var(--bad-soft); color: #93201f; }
+  .fb:empty { display: none; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .btn { border: 0; border-radius: 11px; padding: 10px 16px; font-weight: 650; background: var(--brand); color: #fff; }
+  .btn:hover { background: #4038c9; }
+  .btn.alt { background: var(--soft); color: var(--ink); } .btn.alt:hover { background: #e4e9f4; }
+  .btn.warn { background: var(--bad); } .btn.warn:hover { background: #b52e2e; }
+  .btn[disabled] { opacity: .45; cursor: not-allowed; }
+  .inp { flex: 1 1 150px; min-width: 0; border: 2px solid var(--line); border-radius: 11px; padding: 9px 12px; background: #fff; }
+  .inp:focus { border-color: var(--brand); outline: 0; }
+  .mono { font-family: Consolas, "Cascadia Mono", Menlo, monospace; }
+
+  .tasks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 16px; }
+  .tasks li { display: flex; gap: 9px; align-items: flex-start; color: var(--muted); }
+  .tasks li::before { content: ""; flex: none; width: 20px; height: 20px; margin-top: 2px; border-radius: 6px; border: 2px solid #c4ccdd; }
+  .tasks li.ok { color: var(--ink); }
+  .tasks li.ok::before { content: "✓"; background: var(--good); border-color: var(--good); color: #fff; font-size: 14px; font-weight: 800;
+    display: grid; place-items: center; line-height: 1; }
+
+  #nav { margin-top: auto; padding-top: 8px; display: flex; justify-content: space-between; gap: 8px; }
+
+  .slots { display: flex; flex-wrap: wrap; gap: 5px; }
+  .slot { min-width: 50px; padding: 3px 6px 4px; border-radius: 9px; border: 2px dashed #c4ccdd; text-align: center; font-size: 15px; line-height: 1.2; }
+  .slot small { display: block; font-size: 11.5px; color: var(--muted); font-weight: 700; }
+  .slot.in { border: 2px solid #e5a11d; background: var(--amber-soft); }
+  .slot.lost { border-color: var(--bad); background: var(--bad-soft); }
+  .slot b { white-space: pre; font-family: Consolas, Menlo, monospace; font-weight: 700; min-height: 18px; display: block; }
+
+  .card { border: 1px solid var(--line); border-radius: 13px; padding: 11px 13px; background: var(--soft); }
+  .big { font-size: 24px; font-weight: 700; text-align: center; padding: 6px 0; word-break: break-all; }
+
+  table.book { width: 100%; border-collapse: collapse; font-size: 15.5px; border-radius: 12px; overflow: hidden; }
+  table.book th { background: var(--brand); color: #fff; text-align: left; padding: 6px 11px; font-weight: 650; }
+  table.book td { padding: 6px 11px; border-bottom: 1px solid var(--line); background: var(--soft); transition: background .15s; }
+  table.book tr.scan td { background: #fff1c4; } table.book tr.hit td { background: #bff0dd; font-weight: 700; }
+
+  .seq { display: flex; flex-direction: column; gap: 6px; }
+  .seq button { display: flex; gap: 9px; align-items: center; text-align: left; border: 2px solid var(--line); background: #fff; border-radius: 11px;
+    padding: 7px 11px; font-size: 16px; }
+  .seq button:hover:not([disabled]) { border-color: var(--brand); }
+  .seq button i { flex: none; font-style: normal; width: 25px; height: 25px; border-radius: 50%; background: var(--soft); display: grid; place-items: center;
+    font-size: 14px; font-weight: 800; color: var(--muted); }
+  .seq button.pick { border-color: var(--brand); background: var(--brand-soft); } .seq button.pick i { background: var(--brand); color: #fff; }
+  .seq button.ok { border-color: var(--good); background: var(--good-soft); } .seq button.ok i { background: var(--good); color: #fff; }
+  .seq button.no { border-color: var(--bad); background: var(--bad-soft); }
+  .seq button.now { border-color: #e5a11d; background: var(--amber-soft); }
+
+  .br { border: 1px solid #c8d0e0; border-radius: 12px; overflow: hidden; background: #fff; }
+  .br .bar { display: flex; gap: 8px; align-items: center; padding: 6px 10px; background: #e9edf5; font-size: 15px; }
+  .br .bar .ad { flex: 1; min-width: 0; background: #fff; border-radius: 8px; padding: 2px 9px; font-family: Consolas, Menlo, monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .br .view { height: 158px; padding: 10px 12px; overflow: hidden; font-size: 14px; }
+  .br .view.blank { display: grid; place-items: center; color: var(--muted); }
+  .br .view pre { margin: 0; font: 12.5px/1.4 Consolas, Menlo, monospace; color: #334; white-space: pre-wrap; }
+  .pg h4 { margin: 0 0 5px; padding: 6px 10px; color: #fff; border-radius: 8px; font-size: 16px; }
+  .pg { display: grid; grid-template-columns: 1fr 88px; gap: 4px 10px; } .pg h4 { grid-column: 1/3; }
+  .pg p { margin: 0; font-size: 13.5px; color: #444; }
+  .pg .img { height: 74px; border-radius: 8px; display: grid; place-items: center; color: #fff; font-size: 12px; font-weight: 700; }
+
+  .seg { display: flex; background: var(--soft); border-radius: 12px; padding: 4px; gap: 4px; }
+  .seg button { flex: 1; border: 0; background: none; border-radius: 9px; padding: 8px 6px; font-weight: 700; color: var(--muted); }
+  .seg button.on { background: #fff; color: var(--ink); box-shadow: 0 1px 3px rgba(20,30,70,.18); }
+  .seg button.on.h { color: var(--bad); } .seg button.on.s { color: var(--good); }
+  .caught { display: flex; flex-direction: column; gap: 5px; font-size: 15px; }
+  .caught div { padding: 5px 10px; border-radius: 9px; background: #1c2442; color: #9bf0c9; font-family: Consolas, Menlo, monospace; word-break: break-all; }
+  .caught div.enc { color: #ffb4a8; }
+
+  .q { font-size: 20px; font-weight: 700; line-height: 1.28; }
+  .bar10 { height: 8px; border-radius: 5px; background: var(--soft); overflow: hidden; } .bar10 i { display: block; height: 100%; background: var(--brand); transition: width .3s; }
+  .score { font-size: 56px; font-weight: 800; text-align: center; line-height: 1; color: var(--brand); }
+
+  #hint { position: fixed; left: 14px; bottom: 12px; padding: 5px 11px; border-radius: 9px; background: rgba(255,255,255,.86); color: var(--muted); font-size: 14px; z-index: 3; pointer-events: none; }
+
+  #intro { position: fixed; inset: 0; z-index: 9; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+    text-align: center; padding: 20px; color: #fff; background: radial-gradient(ellipse at center, rgba(8,16,44,.35), rgba(8,16,44,.82)); transition: opacity .5s; }
+  #intro h1 { margin: 0; font-size: clamp(38px, 7vw, 76px); line-height: 1.03; letter-spacing: -.02em; }
+  #intro p { margin: 0; max-width: 620px; font-size: clamp(17px, 2.2vw, 22px); color: #d5def5; }
+  #intro small { color: #a5b4dc; font-size: 15px; }
+  #intro .btn { font-size: 21px; padding: 13px 30px; background: #f5a524; color: #1c2442; }
+  #intro .btn:hover { background: #ffb940; }
+  #intro.gone { opacity: 0; pointer-events: none; }
+
+  body.pre #top, body.pre #panel, body.pre #hint { display: none; }
+  @media (max-width: 1320px) { #steps button span { display: none; } #steps button.on span { display: inline; } }
+  @media (max-width: 860px) {
+    :root { --top: 52px; }
+    body { font-size: 16px; }
+    #top strong { display: none; }
+    #steps { margin-left: 0; }
+    #panel { top: auto; left: 0; width: auto; height: 50%; border-left: 0; border-top: 1px solid var(--line); padding: 14px 16px; }
+    #panel h2 { font-size: 22px; }
+    #hint { display: none; }
+  }
 </style>
 </head>
 <body>
-<div id="wrap">
-  <canvas id="c" aria-label="O'yin maydoni"></canvas>
-  <div id="hud"><span>Savol: <b id="q"></b></span><span style="margin-left:auto">Ball: <b id="s">0</b>/10</span></div>
-  <div id="overlay">
-    <h1>Bayt ovchisi</h1>
-    <p>Yuqoridan javoblar tushadi. Savolga mos to'g'ri javobni bosing. 10 ta savol. Eslatma: 1 bayt = 8 bit, 1 KB = 1024 bayt, 1 MB = 1024 KB.</p>
-    <button id="start">Boshlash</button>
-  </div>
+<canvas id="c" role="img" aria-label="Internet tarmog'ining uch o'lchamli modeli"></canvas>
+<header id="top"><strong>Internet qanday ishlaydi?</strong><nav id="steps" aria-label="Boblar"></nav></header>
+<aside id="panel" aria-live="polite"></aside>
+<div id="hint">Sichqoncha bilan aylantiring · g'ildirak bilan yaqinlashing</div>
+<div id="intro">
+  <small>8-sinf · Computer Science · 10-dars</small>
+  <h1>Internet qanday<br>ishlaydi?</h1>
+  <p>Brauzerga <b>kun.uz</b> deb yozganingizda bir soniyadan kam vaqtda nima bo'ladi? Keling, shu yo'lni o'z qo'lingiz bilan bosib o'tamiz.</p>
+  <p id="nojs">Bu oynada skriptlar ishlamayapti, shuning uchun sahifa ochilmadi. Faylni Explorer'dan ikki marta bosib, Chrome yoki Edge brauzerida oching.</p>
+  <button class="btn" id="start" hidden>Sayohatni boshlash</button>
 </div>
 <script>
+'use strict';
 // Platforma bilan shartnoma: natija faqat shu xabar orqali yuboriladi.
 function sendResult(score, max) {
   parent.postMessage({ type: 'axvcl:result', score: score, max: max }, '*');
 }
 
-const QUESTIONS = [
-  { q: '1 bayt = ? bit', a: '8', w: ['10', '1024', '16'] },
-  { q: '2 bayt = ? bit', a: '16', w: ['8', '20', '2048'] },
-  { q: '1 KB = ? bayt', a: '1024', w: ['1000', '8', '100'] },
-  { q: '2 KB = ? bayt', a: '2048', w: ['2000', '1024', '16'] },
-  { q: '1 MB = ? KB', a: '1024', w: ['1000', '8', '512'] },
-  { q: '1 GB = ? MB', a: '1024', w: ['1000', '100', '2048'] },
-  { q: '1 TB = ? GB', a: '1024', w: ['1000', '8', '10'] },
-  { q: '16 bit = ? bayt', a: '2', w: ['16', '8', '4'] },
-  { q: '3 KB = ? bayt', a: '3072', w: ['3000', '3024', '24'] },
-  { q: 'Eng kichik birlik?', a: 'bit', w: ['bayt', 'KB', 'GB'] },
-  { q: 'Eng katta birlik?', a: 'TB', w: ['GB', 'MB', 'KB'] },
-  { q: '512 KB = ? MB', a: '0.5', w: ['5', '512', '2'] },
+/* ---------- Yordamchilar ---------- */
+const $ = s => document.querySelector(s);
+function h(tag, attrs, ...kids) {
+  const e = document.createElement(tag);
+  for (const k in attrs || {}) {
+    const v = attrs[k];
+    if (k === 'on') for (const ev in v) e.addEventListener(ev, v[ev]);
+    else if (k === 'class') e.className = v;
+    else if (k === 'html') e.innerHTML = v;
+    else if (k === 'value') e.value = v;
+    else if (v === true) e.setAttribute(k, '');
+    else if (v != null && v !== false) e.setAttribute(k, v);
+  }
+  for (const c of kids.flat()) if (c != null && c !== false) e.append(c);
+  return e;
+}
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const rand = (a, b) => a + Math.random() * (b - a);
+const pick = a => a[Math.floor(Math.random() * a.length)];
+const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const norm = v => { const l = Math.hypot(v[0], v[1], v[2]) || 1; return [v[0] / l, v[1] / l, v[2] / l]; };
+const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+const hex2 = c => [parseInt(c.slice(1, 3), 16), parseInt(c.slice(3, 5), 16), parseInt(c.slice(5, 7), 16)];
+const shade = (c, k) => { const r = hex2(c); return `rgb(${Math.min(255, r[0] * k) | 0},${Math.min(255, r[1] * k) | 0},${Math.min(255, r[2] * k) | 0})`; };
+
+const cv = $('#c'), g = cv.getContext('2d');
+let W = 0, H = 0, DPR = Math.min(window.devicePixelRatio || 1, 2);
+const REDUCED = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+function resize() {
+  W = innerWidth; H = innerHeight;
+  cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
+}
+addEventListener('resize', resize);
+function viewport() { // panel egallamagan sahna maydoni
+  const p = $('#panel').getBoundingClientRect(), top = $('#top').offsetHeight;
+  if (W > 860) return { x: 0, y: top, w: W - p.width, h: H - top };
+  return { x: 0, y: top, w: W, h: H - top - p.height };
+}
+
+/* ---------- Tweenlar ---------- */
+const tweens = [];
+function tween(ms, fn) {
+  return new Promise(res => tweens.push({ t: 0, ms, fn, res }));
+}
+const wait = ms => tween(ms, () => {});
+
+/* ---------- 3D dunyo: geometriya ---------- */
+const LIGHT = norm([0.5, 0.82, 0.32]);
+const groups = [];
+function group(x, z, under) { const G = { c: [x, 4, z], parts: [], under: !!under, d: 0 }; groups.push(G); return G; }
+function solid(G, verts, faces, col) {
+  const c = [0, 0, 0];
+  verts.forEach(v => { c[0] += v[0]; c[1] += v[1]; c[2] += v[2]; });
+  c[0] /= verts.length; c[1] /= verts.length; c[2] /= verts.length;
+  const P = { v: verts, f: [], col, X: [], Y: [], Z: [], noShadow: false };
+  for (const idx of faces) {
+    const a = verts[idx[0]], b = verts[idx[1]], d = verts[idx[2]];
+    let n = norm(cross([b[0] - a[0], b[1] - a[1], b[2] - a[2]], [d[0] - a[0], d[1] - a[1], d[2] - a[2]]));
+    if (dot(n, [a[0] - c[0], a[1] - c[1], a[2] - c[2]]) < 0) { n = [-n[0], -n[1], -n[2]]; idx.reverse(); }
+    const k = 0.66 + 0.42 * Math.max(0, dot(n, LIGHT));
+    P.f.push({ i: idx, n, k, fill: shade(col, k), dec: [] });
+  }
+  G.parts.push(P);
+  return P;
+}
+function recolor(P, col) { P.col = col; for (const f of P.f) f.fill = shade(col, f.k); }
+function box(G, x, y, z, w, hh, d, col) {
+  const a = x - w / 2, b = x + w / 2, e = z - d / 2, f = z + d / 2, t = y + hh;
+  const P = solid(G, [[b, y, e], [b, y, f], [b, t, f], [b, t, e], [a, y, e], [a, y, f], [a, t, f], [a, t, e]],
+    [[0, 1, 2, 3], [5, 4, 7, 6], [1, 5, 6, 2], [4, 0, 3, 7], [3, 2, 6, 7]], col);
+  P.box = { x, y, z, w, h: hh, d };
+  return P;
+}
+function cyl(G, x, y, z, r, hh, n, col, r2) {
+  r2 = r2 == null ? r : r2;
+  const v = [], f = [], top = [];
+  for (let i = 0; i < n; i++) {
+    const a = i / n * Math.PI * 2, c = Math.cos(a), s = Math.sin(a);
+    v.push([x + c * r, y, z + s * r], [x + c * r2, y + hh, z + s * r2]);
+  }
+  for (let i = 0; i < n; i++) { const j = (i + 1) % n; f.push([i * 2, j * 2, j * 2 + 1, i * 2 + 1]); top.push(i * 2 + 1); }
+  if (r2 > 0.02) f.push(top);
+  return solid(G, v, f, col);
+}
+function gable(G, x, y, z, w, hh, d, col) { // tomi x o'qi bo'ylab
+  const a = x - w / 2, b = x + w / 2, e = z - d / 2, f = z + d / 2, t = y + hh;
+  return solid(G, [[a, y, e], [b, y, e], [b, y, f], [a, y, f], [a, t, z], [b, t, z]],
+    [[0, 3, 4], [1, 2, 5], [0, 1, 5, 4], [3, 2, 5, 4]], col);
+}
+// Box yuzasiga oynalar. side: 0 x+, 1 x-, 2 z+, 3 z-
+function windows(P, side, cols, rows, col, opts) {
+  const b = P.box, o = opts || {}, m = o.margin || 0.14, face = P.f[side];
+  const span = side < 2 ? b.d : b.w, fill = o.fill || 0.62;
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+    const cw = span * (1 - 2 * m) / cols, ch = b.h * (1 - 2 * m) / rows;
+    const u0 = -span / 2 + span * m + c * cw + cw * (1 - fill) / 2, u1 = u0 + cw * fill;
+    const v0 = b.y + b.h * m + r * ch + ch * (1 - fill) / 2, v1 = v0 + ch * fill;
+    const mk = (u, v) => side === 0 ? [b.x + b.w / 2, v, b.z + u] : side === 1 ? [b.x - b.w / 2, v, b.z + u]
+      : side === 2 ? [b.x + u, v, b.z + b.d / 2] : [b.x + u, v, b.z - b.d / 2];
+    const s = P.v.length;
+    P.v.push(mk(u0, v0), mk(u1, v0), mk(u1, v1), mk(u0, v1));
+    const lit = o.random ? Math.random() < 0.72 : true;
+    face.dec.push({ i: [s, s + 1, s + 2, s + 3], fill: shade(lit ? col : (o.dark || '#6e7ba0'), face.k), blink: o.blink ? Math.random() * 6 : null });
+  }
+}
+
+const IS_R = 68, island = [];
+for (let i = 0; i < 72; i++) {
+  const a = i / 72 * Math.PI * 2, r = IS_R + 3.2 * Math.sin(a * 3 + 1) + 2.2 * Math.sin(a * 5 + 2.2);
+  island.push([Math.cos(a) * r, 0, Math.sin(a) * r]);
+}
+const blob = (x, z, r, sq) => { const o = []; for (let i = 0; i < 22; i++) { const a = i / 22 * 6.283, q = r * (1 + 0.13 * Math.sin(a * 3 + x)); o.push([x + Math.cos(a) * q, 0, z + Math.sin(a) * q * (sq || 1)]); } return o; };
+const patches = [
+  { p: blob(-30, 34, 20, .7), c: '#b6dc9b' }, { p: blob(28, -42, 18, .7), c: '#b6dc9b' },
+  { p: blob(-42, -22, 16), c: '#a9d4e6' }, { p: blob(-42, -22, 12.5), c: '#8cc6e0' },
+  { p: blob(24, 44, 14, .7), c: '#d4e9b9' }, { p: blob(-4, 2, 15, .8), c: '#d4e9b9' },
 ];
 
-const c = document.getElementById('c');
-const ctx = c.getContext('2d');
-const qEl = document.getElementById('q');
-const sEl = document.getElementById('s');
-const overlay = document.getElementById('overlay');
-let W = 0, H = 0, dpr = 1;
-let round = 0, score = 0, items = [], deck = [], running = false, flash = null, last = 0;
-
-function resize() {
-  dpr = window.devicePixelRatio || 1;
-  W = c.clientWidth; H = c.clientHeight;
-  c.width = W * dpr; c.height = H * dpr;
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-}
-window.addEventListener('resize', resize);
-
-function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
-
-function nextRound() {
-  if (round >= 10) return finish();
-  const q = deck[round];
-  qEl.textContent = q.q;
-  const answers = shuffle([q.a, ...q.w]);
-  const lane = W / answers.length;
-  items = answers.map((text, i) => ({ text, ok: text === q.a, x: lane * i + lane / 2, y: -40 - Math.random() * 120, r: Math.min(46, lane / 2 - 6) }));
-}
-
-function pick(x, y) {
-  if (!running) return;
-  const hit = items.find((it) => Math.hypot(it.x - x, it.y - y) < it.r + 6);
-  if (!hit) return;
-  if (hit.ok) score++;
-  flash = { ok: hit.ok, t: 30, text: hit.ok ? "To'g'ri!" : "Javob: " + deck[round].a };
-  sEl.textContent = score;
-  round++;
-  nextRound();
-}
-
-c.addEventListener('pointerdown', (e) => { const r = c.getBoundingClientRect(); pick(e.clientX - r.left, e.clientY - r.top); });
-// Klaviatura: 1–4 raqamlari chapdan o'ngga javoblarni tanlaydi.
-window.addEventListener('keydown', (e) => {
-  const n = Number(e.key);
-  if (running && n >= 1 && n <= items.length) { const it = [...items].sort((a, b) => a.x - b.x)[n - 1]; pick(it.x, it.y); }
+/* Tugunlar: uylar, routerlar va serverlar */
+const N = {
+  home:   { x: -46, z: 22, kind: 'end', name: 'Sizning uyingiz', ip: '95.214.10.7', top: 15 },
+  friend: { x: 38, z: 36, kind: 'end', name: "Do'stingiz uyi", ip: '84.54.70.12', top: 15 },
+  isp:    { x: -28, z: 2, kind: 'isp', name: 'Provayder', ip: '', top: 24 },
+  r1: { x: -12, z: -16, kind: 'r', name: 'Router 1', top: 8 },
+  r2: { x: -10, z: 16, kind: 'r', name: 'Router 2', top: 8 },
+  r3: { x: 8, z: -2, kind: 'r', name: 'Router 3', top: 8 },
+  r4: { x: 12, z: 24, kind: 'r', name: 'Router 4', top: 8 },
+  r5: { x: 22, z: -20, kind: 'r', name: 'Router 5', top: 8 },
+  r6: { x: 30, z: 8, kind: 'r', name: 'Router 6', top: 8 },
+  dns: { x: -4, z: -42, kind: 'srv', name: 'DNS server', ip: '8.8.8.8', top: 19 },
+  dc:  { x: 47, z: -28, kind: 'srv', name: 'Hosting markazi', ip: '91.213.40.x', top: 13 },
+  kun: { x: 54, z: 8, kind: 'srv', name: 'kun.uz serveri', domain: 'kun.uz', ip: '185.8.212.10', top: 27 },
+  git: { x: 10, z: 48, kind: 'srv', name: 'github.com serveri', domain: 'github.com', ip: '140.82.121.4', top: 21 },
+  gov: { x: -18, z: 44, kind: 'srv', name: 'my.gov.uz serveri', domain: 'my.gov.uz', ip: '213.230.64.5', top: 19 },
+};
+for (const k in N) { N[k].id = k; N[k].links = []; N[k].down = false; }
+const EDGE_LIST = 'home-isp isp-r1 isp-r2 r1-r2 r1-r3 r2-r3 r2-r4 r1-dns r5-dns r3-r5 r3-r6 r4-r6 r5-r6 r5-dc r6-kun r6-friend r4-friend r4-git r2-gov';
+const edges = EDGE_LIST.split(' ').map(s => {
+  const [a, b] = s.split('-');
+  N[a].links.push(b); N[b].links.push(a);
+  return { a: N[a], b: N[b], heat: 0 };
 });
+const edgeOf = (a, b) => edges.find(e => (e.a.id === a && e.b.id === b) || (e.a.id === b && e.b.id === a));
 
-function loop(t) {
-  if (!running) return;
-  const dt = Math.min(50, t - (last || t)); last = t;
-  ctx.clearRect(0, 0, W, H);
-  const speed = 0.06 + round * 0.006;
-  for (const it of items) {
-    it.y += speed * dt;
-    ctx.beginPath(); ctx.arc(it.x, it.y, it.r, 0, Math.PI * 2);
-    ctx.fillStyle = '#1e40af'; ctx.fill();
-    ctx.lineWidth = 3; ctx.strokeStyle = '#60a5fa'; ctx.stroke();
-    ctx.fillStyle = '#fff'; ctx.font = '600 18px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(it.text, it.x, it.y);
+function house(n, roof, wall) {
+  const G = group(n.x, n.z);
+  const w = box(G, n.x, 0, n.z, 13, 7.5, 10, wall);
+  windows(w, 2, 2, 1, '#7fd0ee', { margin: .2 }); windows(w, 0, 2, 1, '#7fd0ee', { margin: .2 }); windows(w, 1, 2, 1, '#7fd0ee', { margin: .2 });
+  gable(G, n.x, 7.5, n.z, 14.6, 5, 11.8, roof);
+  box(G, n.x + 3.6, 9, n.z - 2, 1.6, 4.4, 1.6, '#a56a4e');
+  return G;
+}
+function tower(n, w, d, hh, col, winCol, c, r) {
+  const G = group(n.x, n.z);
+  const t = box(G, n.x, 0, n.z, w, hh, d, col);
+  for (const s of [0, 1, 2, 3]) windows(t, s, c, r, winCol, { random: true, margin: .1, dark: col === '#39407e' ? '#2c3266' : '#b9674e' });
+  box(G, n.x, hh, n.z, w * .55, 1.2, d * .55, shade(col, .8).replace(/rgb\((\d+),(\d+),(\d+)\)/, (m, a, b, e) => '#' + [a, b, e].map(q => (+q).toString(16).padStart(2, '0')).join('')));
+  return G;
+}
+const routerParts = {}, racks = [];
+function buildWorld() {
+  house(N.home, '#e4674a', '#fbf0dd');
+  house(N.friend, '#2f9e96', '#fbf0dd');
+
+  { const n = N.isp, G = group(n.x, n.z);
+    const b = box(G, n.x, 0, n.z, 11, 6, 9, '#cdd8ea');
+    windows(b, 2, 3, 1, '#5a63d8', { margin: .18 }); windows(b, 0, 2, 1, '#5a63d8', { margin: .18 }); windows(b, 1, 2, 1, '#5a63d8', { margin: .18 });
+    cyl(G, n.x, 6, n.z, 2.4, 15, 6, '#5a63d8', .5);
+    cyl(G, n.x, 14, n.z, 3.2, .8, 8, '#f2b441', 3.2);
+    cyl(G, n.x, 19, n.z, 2.2, .8, 8, '#f2b441', 2.2);
+    cyl(G, n.x, 21, n.z, .9, 3, 5, '#e4674a', .1);
   }
-  if (items.some((it) => it.y - it.r > H)) {
-    flash = { ok: false, t: 30, text: 'Vaqt tugadi! Javob: ' + deck[round].a };
-    round++; nextRound();
+  for (const id of ['r1', 'r2', 'r3', 'r4', 'r5', 'r6']) {
+    const n = N[id], G = group(n.x, n.z);
+    cyl(G, n.x, 0, n.z, 4.6, 1.3, 10, '#c9d3e6', 4.2);
+    const body = cyl(G, n.x, 1.3, n.z, 3.3, 2.6, 10, '#4f55d6', 3);
+    const a1 = box(G, n.x - 1.5, 3.9, n.z, .5, 3.4, .5, '#39407e');
+    const a2 = box(G, n.x + 1.5, 3.9, n.z, .5, 3.4, .5, '#39407e');
+    routerParts[id] = [body, a1, a2];
   }
-  if (flash && flash.t-- > 0) {
-    ctx.fillStyle = flash.ok ? '#22c55e' : '#f87171'; ctx.font = '700 26px system-ui'; ctx.textAlign = 'center';
-    ctx.fillText(flash.text, W / 2, H - 30);
+  { const n = N.dns, G = group(n.x, n.z);
+    box(G, n.x, 0, n.z, 19, 1.4, 13, '#e8e0cf');
+    const b = box(G, n.x, 1.4, n.z, 16.5, 7.6, 10.5, '#fbf0dd');
+    windows(b, 2, 5, 1, '#5a63d8', { margin: .07, fill: .3 }); windows(b, 0, 3, 1, '#5a63d8', { margin: .1, fill: .35 }); windows(b, 1, 3, 1, '#5a63d8', { margin: .1, fill: .35 });
+    gable(G, n.x, 9, n.z, 18.4, 3.4, 12.2, '#5a63d8');
+    // tomdagi ochiq kitob
+    const y = 13.2, x = n.x, z = n.z;
+    solid(G, [[x - 5, y + 2, z - 2.6], [x, y, z - 2.6], [x, y, z + 2.6], [x - 5, y + 2, z + 2.6]], [[0, 1, 2, 3]], '#fff8e8');
+    solid(G, [[x + 5, y + 2, z - 2.6], [x, y, z - 2.6], [x, y, z + 2.6], [x + 5, y + 2, z + 2.6]], [[0, 1, 2, 3]], '#fffdf5');
+    box(G, x, 12.4, z, 1, .9, 5.4, '#e4674a');
   }
-  requestAnimationFrame(loop);
+  { const n = N.dc, P = group(n.x, n.z, true);
+    box(P, n.x, 0, n.z, 30, 1.2, 20, '#cdd8ea');
+    const wall = group(n.x, n.z - 12);
+    const b = box(wall, n.x, 1.2, n.z - 8.2, 30, 11, 3.6, '#8d97bb');
+    windows(b, 2, 8, 1, '#a9b6d6', { margin: .05, fill: .4 });
+    for (let r = 0; r < 2; r++) for (let c = 0; c < 4; c++) {
+      const x = n.x - 10.5 + c * 7, z = n.z - 2 + r * 8.2, G = group(x, z);
+      const k = box(G, x, 1.2, z, 5, 10, 3.2, '#39407e');
+      const leds = () => { windows(k, 2, 3, 6, '#3fe0a0', { margin: .09, fill: .42, blink: true }); windows(k, 0, 1, 6, '#3fe0a0', { margin: .09, fill: .3, blink: true }); };
+      leds();
+      racks.push({ i: r * 4 + c, x, z, part: k, used: [0, 1, 4].includes(r * 4 + c), mine: false, ip: '91.213.40.' + (21 + r * 4 + c) });
+    }
+    racks.forEach(setRackLook);
+  }
+  tower(N.kun, 11, 11, 24, '#e4674a', '#ffe8b8', 3, 6);
+  tower(N.git, 11, 10, 18, '#39407e', '#a9c3ff', 3, 4);
+  { const n = N.gov, G = group(n.x, n.z);
+    box(G, n.x, 0, n.z, 16, 1.2, 11, '#e8e0cf');
+    const b = box(G, n.x, 1.2, n.z, 14, 9, 9, '#fdfaf2');
+    for (const s of [0, 1, 2, 3]) windows(b, s, s < 2 ? 3 : 4, 2, '#2f9e96', { margin: .1 });
+    cyl(G, n.x, 10.2, n.z, 4, 2.6, 10, '#2f9e96', 3.2);
+    cyl(G, n.x, 12.8, n.z, 3.2, 3.4, 10, '#2f9e96', .4);
+  }
+  // Daraxtlar kabel va binolarga tushmaydigan joylarga
+  let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const segD = (px, pz, e) => {
+    const ax = e.a.x, az = e.a.z, bx = e.b.x - ax, bz = e.b.z - az;
+    const t = clamp(((px - ax) * bx + (pz - az) * bz) / (bx * bx + bz * bz), 0, 1);
+    return Math.hypot(px - ax - t * bx, pz - az - t * bz);
+  };
+  let made = 0;
+  for (let i = 0; i < 400 && made < 34; i++) {
+    const a = rnd() * 6.283, r = 16 + rnd() * 47, x = Math.cos(a) * r, z = Math.sin(a) * r;
+    if (Math.hypot(x + 42, z + 22) < 19) continue; // ko'l
+    if (Object.values(N).some(n => Math.hypot(n.x - x, n.z - z) < (n.id === 'dc' ? 22 : 11))) continue;
+    if (edges.some(e => segD(x, z, e) < 3.4)) continue;
+    const G = group(x, z), s = .8 + rnd() * .55;
+    cyl(G, x, 0, z, .55 * s, 2 * s, 5, '#94674a');
+    cyl(G, x, 1.6 * s, z, 3 * s, 4.6 * s, 6, rnd() > .5 ? '#4fae72' : '#5fbb6a', .05);
+    cyl(G, x, 4.3 * s, z, 2.1 * s, 3.8 * s, 6, '#6cc777', .05);
+    made++;
+  }
+  buildShadows();
+}
+function setRackLook(r) {
+  recolor(r.part, r.mine ? (r.off ? '#8c2f2f' : '#f2a31f') : r.used ? '#39407e' : '#aab4cc');
+  for (const f of r.part.f) for (const d of f.dec) { d.off = !r.used && !r.mine || r.off; }
+}
+function hull(pts) {
+  pts = pts.slice().sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  const c = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const lo = [], up = [];
+  for (const p of pts) { while (lo.length > 1 && c(lo[lo.length - 2], lo[lo.length - 1], p) <= 0) lo.pop(); lo.push(p); }
+  for (const p of pts.slice().reverse()) { while (up.length > 1 && c(up[up.length - 2], up[up.length - 1], p) <= 0) up.pop(); up.push(p); }
+  return lo.slice(0, -1).concat(up.slice(0, -1));
+}
+const shadows = [];
+function buildShadows() {
+  const kx = LIGHT[0] / LIGHT[1], kz = LIGHT[2] / LIGHT[1];
+  for (const G of groups) for (const P of G.parts) {
+    const pts = P.v.map(v => [v[0] - v[1] * kx, v[2] - v[1] * kz]);
+    shadows.push(hull(pts).map(q => [q[0], 0, q[1]]));
+  }
 }
 
-function start() {
-  resize();
-  deck = shuffle(QUESTIONS.slice()).slice(0, 10);
-  round = 0; score = 0; sEl.textContent = '0'; flash = null; last = 0;
-  overlay.style.display = 'none';
-  running = true;
-  nextRound();
-  requestAnimationFrame(loop);
+/* ---------- Kamera ---------- */
+const cam = { t: [0, 2, 4], yaw: .35, pitch: .78, dist: 150, g: { t: [0, 2, 4], yaw: .35, pitch: .78, dist: 150 } };
+let E = [0, 0, 0], R = [1, 0, 0], U = [0, 1, 0], Fw = [0, 0, 1], FOC = 800, CX = 0, CY = 0;
+function fly(p, instant) {
+  Object.assign(cam.g, { t: p.t || cam.g.t, yaw: p.yaw != null ? p.yaw : cam.g.yaw, pitch: p.pitch != null ? p.pitch : cam.g.pitch, dist: p.dist || cam.g.dist });
+  if (instant) { cam.t = cam.g.t.slice(); cam.yaw = cam.g.yaw; cam.pitch = cam.g.pitch; cam.dist = cam.g.dist; }
+}
+function setupCam(dt) {
+  const k = 1 - Math.exp(-dt * 3.2), q = cam.g;
+  for (let i = 0; i < 3; i++) cam.t[i] += (q.t[i] - cam.t[i]) * k;
+  cam.yaw += (q.yaw - cam.yaw) * k; cam.pitch += (q.pitch - cam.pitch) * k; cam.dist += (q.dist - cam.dist) * k;
+  const cp = Math.cos(cam.pitch), sp = Math.sin(cam.pitch);
+  E = [cam.t[0] + cam.dist * cp * Math.sin(cam.yaw), cam.t[1] + cam.dist * sp, cam.t[2] + cam.dist * cp * Math.cos(cam.yaw)];
+  Fw = norm([cam.t[0] - E[0], cam.t[1] - E[1], cam.t[2] - E[2]]);
+  R = norm(cross(Fw, [0, 1, 0])); U = cross(R, Fw);
+  const v = viewport();
+  FOC = Math.min(v.w, v.h * 1.2) * 1.06; CX = v.x + v.w / 2; CY = v.y + v.h / 2;
+}
+const NEAR = 3;
+function proj(p) {
+  const dx = p[0] - E[0], dy = p[1] - E[1], dz = p[2] - E[2];
+  const z = dx * Fw[0] + dy * Fw[1] + dz * Fw[2];
+  const s = FOC / Math.max(z, .1);
+  return [CX + (dx * R[0] + dy * R[1] + dz * R[2]) * s, CY - (dx * U[0] + dy * U[1] + dz * U[2]) * s, z, s];
+}
+// Yer sathidagi ko'pburchakni yaqin tekislik bo'yicha kesib chizish
+function polyPath(pts) {
+  let prev = pts[pts.length - 1], pz = camZ(prev), first = true;
+  for (const p of pts) {
+    const z = camZ(p);
+    if ((z >= NEAR) !== (pz >= NEAR)) {
+      const t = (NEAR - pz) / (z - pz);
+      const c = proj([prev[0] + (p[0] - prev[0]) * t, prev[1] + (p[1] - prev[1]) * t, prev[2] + (p[2] - prev[2]) * t]);
+      first ? g.moveTo(c[0], c[1]) : g.lineTo(c[0], c[1]); first = false;
+    }
+    if (z >= NEAR) { const c = proj(p); first ? g.moveTo(c[0], c[1]) : g.lineTo(c[0], c[1]); first = false; }
+    prev = p; pz = z;
+  }
+  if (!first) g.closePath();
+}
+const camZ = p => (p[0] - E[0]) * Fw[0] + (p[1] - E[1]) * Fw[1] + (p[2] - E[2]) * Fw[2];
+
+function drawPart(P, time) {
+  const v = P.v, X = P.X, Y = P.Y, Z = P.Z;
+  for (let i = 0; i < v.length; i++) {
+    const p = v[i], dx = p[0] - E[0], dy = p[1] - E[1], dz = p[2] - E[2];
+    const z = dx * Fw[0] + dy * Fw[1] + dz * Fw[2], s = FOC / Math.max(z, .1);
+    X[i] = CX + (dx * R[0] + dy * R[1] + dz * R[2]) * s; Y[i] = CY - (dx * U[0] + dy * U[1] + dz * U[2]) * s; Z[i] = z;
+  }
+  for (const f of P.f) {
+    const a = v[f.i[0]];
+    if ((E[0] - a[0]) * f.n[0] + (E[1] - a[1]) * f.n[1] + (E[2] - a[2]) * f.n[2] <= 0) continue;
+    let ok = true;
+    for (const i of f.i) if (Z[i] < NEAR) { ok = false; break; }
+    if (!ok) continue;
+    g.beginPath(); g.moveTo(X[f.i[0]], Y[f.i[0]]);
+    for (let q = 1; q < f.i.length; q++) g.lineTo(X[f.i[q]], Y[f.i[q]]);
+    g.closePath(); g.fillStyle = f.fill; g.strokeStyle = f.fill; g.lineWidth = .7; g.fill(); g.stroke();
+    for (const d of f.dec) {
+      if (d.off) g.fillStyle = 'rgba(20,24,60,.55)';
+      else if (d.blink != null && Math.sin(time * 3 + d.blink * 7) > .72) g.fillStyle = '#1a2150';
+      else g.fillStyle = d.fill;
+      g.beginPath(); g.moveTo(X[d.i[0]], Y[d.i[0]]);
+      for (let q = 1; q < 4; q++) g.lineTo(X[d.i[q]], Y[d.i[q]]);
+      g.closePath(); g.fill();
+    }
+  }
 }
 
-function finish() {
-  running = false;
-  sendResult(score, 10);
-  overlay.style.display = 'flex';
-  overlay.querySelector('h1').textContent = 'Natija: ' + score + ' / 10';
-  overlay.querySelector('p').textContent = score >= 8 ? "Zo'r! O'lchov birliklarini yaxshi bilasiz." : "Yana bir bor urinib ko'ring: 1 KB = 1024 bayt ekanini unutmang.";
-  document.getElementById('start').textContent = 'Qayta o\'ynash';
+function drawSky(time) {
+  const gr = g.createLinearGradient(0, 0, 0, H);
+  gr.addColorStop(0, '#8fd0ef'); gr.addColorStop(.6, '#cdeaf2'); gr.addColorStop(1, '#f0f7ee');
+  g.fillStyle = gr; g.fillRect(0, 0, W, H);
+  g.fillStyle = 'rgba(255,255,255,.75)';
+  for (let i = 0; i < 6; i++) {
+    const x = ((i * 353 + time * 6 - cam.yaw * 260) % (W + 400) + W + 400) % (W + 400) - 200, y = 90 + (i * 97) % (H * .42);
+    g.beginPath(); g.ellipse(x, y, 90, 19, 0, 0, 7); g.ellipse(x - 34, y + 7, 54, 13, 0, 0, 7); g.ellipse(x + 42, y + 5, 60, 14, 0, 0, 7); g.fill();
+  }
+}
+function drawGround(time) {
+  // Orolning qirrasi
+  const base = island.map(p => [p[0] * .93, -9, p[2] * .93]);
+  const n = island.length;
+  for (let i = 0; i < n; i++) {
+    const j = (i + 1) % n, a = island[i], b = island[j];
+    const nx = (a[0] + b[0]) / 2, nz = (a[2] + b[2]) / 2;
+    if ((E[0] - nx) * nx + (E[2] - nz) * nz <= 0) continue;
+    const light = .78 + .22 * Math.max(0, (nx * LIGHT[0] + nz * LIGHT[2]) / IS_R);
+    g.beginPath(); polyPath([a, b, base[j], base[i]]);
+    g.fillStyle = g.strokeStyle = shade('#b58a5e', light); g.lineWidth = 1; g.fill(); g.stroke();
+  }
+  g.beginPath(); polyPath(island); g.fillStyle = '#c6e6a6'; g.fill();
+  for (const q of patches) { g.beginPath(); polyPath(q.p); g.fillStyle = q.c; g.fill(); }
+  g.beginPath(); for (const s of shadows) polyPath(s);
+  g.fillStyle = 'rgba(46,70,60,.2)'; g.fill();
+  for (const e of edges) drawCable(e, time);
+}
+function drawCable(e, time) {
+  let a = [e.a.x, .15, e.a.z], b = [e.b.x, .15, e.b.z];
+  let za = camZ(a), zb = camZ(b);
+  if (za < NEAR && zb < NEAR) return;
+  if (za < NEAR) { const t = (NEAR - za) / (zb - za); a = [a[0] + (b[0] - a[0]) * t, .15, a[2] + (b[2] - a[2]) * t]; }
+  if (zb < NEAR) { const t = (NEAR - zb) / (za - zb); b = [b[0] + (a[0] - b[0]) * t, .15, b[2] + (a[2] - b[2]) * t]; }
+  const p = proj(a), q = proj(b), wdt = (p[3] + q[3]) / 2;
+  const dead = e.a.down || e.b.down;
+  g.lineCap = 'round';
+  g.beginPath(); g.moveTo(p[0], p[1]); g.lineTo(q[0], q[1]);
+  g.strokeStyle = dead ? '#c4b8ae' : '#46527c'; g.lineWidth = Math.max(2, 1.25 * wdt); g.stroke();
+  if (dead) return;
+  g.strokeStyle = e.heat > 0 ? '#ffb52e' : '#8fa2d0'; g.lineWidth = Math.max(1, (e.heat > 0 ? .62 : .34) * wdt); g.stroke();
 }
 
-document.getElementById('start').addEventListener('click', start);
-resize();
+/* ---------- Paketlar ---------- */
+const packets = [], rings = [], sprites = [];
+const KIND = {
+  data:  { c: '#f5a524', ink: '#4d3000' },
+  dns:   { c: '#5a63d8', ink: '#fff' },
+  reply: { c: '#16a37f', ink: '#fff' },
+  file:  { c: '#e4674a', ink: '#fff' },
+  plain: { c: '#fff7e0', ink: '#7a4a00' },
+  lock:  { c: '#16a37f', ink: '#fff' },
+};
+function bfs(dst) { // dst dan har bir tugungacha qadamlar soni; faqat ishlayotgan routerlar orqali
+  const dist = { [dst]: 0 }, q = [dst];
+  while (q.length) {
+    const c = q.shift();
+    if (c !== dst && N[c].kind !== 'r' && N[c].kind !== 'isp') continue;
+    for (const nb of N[c].links) if (dist[nb] == null && !N[nb].down) { dist[nb] = dist[c] + 1; q.push(nb); }
+  }
+  return dist;
+}
+function nextHop(cur, dst, prev, wander) {
+  const d = bfs(dst);
+  if (d[cur] == null) return null;
+  let c = N[cur].links.filter(n => d[n] != null && d[n] < d[cur]);
+  if (wander && Math.random() < .4) {
+    const side = N[cur].links.filter(n => d[n] === d[cur] && n !== prev && N[n].kind === 'r');
+    if (side.length) c = side;
+  }
+  return c.length ? pick(c) : null;
+}
+function sendPacket(src, dst, o) {
+  o = o || {};
+  return new Promise(res => {
+    packets.push({ src, dst, cur: src, prev: null, next: null, t: 0, wait: 0, res, kind: o.kind || 'data', label: o.label == null ? '' : String(o.label),
+      speed: o.speed || 44, wander: !!o.wander, bob: Math.random() * 6, loop: !!o.loop, payload: o.payload, retries: o.retries == null ? 2 : o.retries, sc: o.scale || 1 });
+  });
+}
+function endPacket(p, r) { packets.splice(packets.indexOf(p), 1); p.res(r); }
+function clearPackets() { for (const p of packets.slice()) endPacket(p, 'cancel'); }
+function updatePackets(dt) {
+  for (const e of edges) e.heat = Math.max(0, e.heat - dt);
+  for (const p of packets.slice()) {
+    if (!p.next) {
+      p.next = nextHop(p.cur, p.dst, p.prev, p.wander);
+      if (!p.next) {
+        p.wait += dt;
+        if (p.wait > 2.4) { rings.push({ p: [N[p.cur].x, 3, N[p.cur].z], t: 0, c: '#d13c3c' }); endPacket(p, 'lost'); }
+        continue;
+      }
+      p.wait = 0; p.t = 0;
+      p.len = Math.hypot(N[p.next].x - N[p.cur].x, N[p.next].z - N[p.cur].z);
+    }
+    const e = edgeOf(p.cur, p.next); if (e) e.heat = .25;
+    p.t += p.speed * dt / p.len;
+    if (p.t >= 1) {
+      p.prev = p.cur; p.cur = p.next; p.next = null; p.t = 0;
+      if (N[p.cur].down) { // yo'lda router o'chdi: paket yo'qoladi va qayta yuboriladi
+        rings.push({ p: [N[p.cur].x, 3, N[p.cur].z], t: 0, c: '#d13c3c' });
+        if (p.retries-- > 0) { p.cur = p.src; p.prev = null; } else { endPacket(p, 'lost'); }
+        continue;
+      }
+      if (p.cur === p.dst) {
+        rings.push({ p: [N[p.dst].x, 2, N[p.dst].z], t: 0, c: KIND[p.kind].c });
+        if (p.loop) { p.cur = p.src; p.prev = null; } else endPacket(p, 'ok');
+      }
+    }
+  }
+}
+function packetPos(p) {
+  const a = N[p.cur], b = p.next ? N[p.next] : a, t = p.t;
+  return [a.x + (b.x - a.x) * t, 2.6 + Math.abs(Math.sin(t * 7 + p.bob)) * .7, a.z + (b.z - a.z) * t];
+}
+function drawEnvelope(x, y, s, k, label) {
+  const w = 46 * s, hh = 31 * s, c = KIND[k];
+  g.fillStyle = 'rgba(20,28,60,.28)'; roundRect(x - w / 2 + 1.5, y - hh / 2 + 2.5, w, hh, 5 * s); g.fill();
+  g.fillStyle = c.c; roundRect(x - w / 2, y - hh / 2, w, hh, 5 * s); g.fill();
+  g.strokeStyle = 'rgba(255,255,255,.9)'; g.lineWidth = Math.max(1, 1.7 * s); g.stroke();
+  if (k === 'lock') { // yopiq quti: ustida qulf
+    g.strokeStyle = '#fff'; g.lineWidth = 2.4 * s; g.beginPath(); g.arc(x, y - 3 * s, 5 * s, Math.PI, 0); g.stroke();
+    g.fillStyle = '#fff'; g.fillRect(x - 7 * s, y - 3 * s, 14 * s, 10 * s);
+    return;
+  }
+  g.strokeStyle = 'rgba(0,0,0,.2)'; g.lineWidth = Math.max(1, 1.3 * s);
+  g.beginPath(); g.moveTo(x - w / 2 + 2, y - hh / 2 + 2); g.lineTo(x, y + 1 * s); g.lineTo(x + w / 2 - 2, y - hh / 2 + 2); g.stroke();
+  if (label) {
+    g.fillStyle = c.ink; g.font = `800 ${Math.max(10, 16 * s)}px "Segoe UI",system-ui,sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText(label, x, y + 6 * s);
+  }
+}
+function roundRect(x, y, w, hh, r) {
+  g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + hh, r); g.arcTo(x + w, y + hh, x, y + hh, r); g.arcTo(x, y + hh, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath();
+}
+
+/* ---------- Dunyoni chizish ---------- */
+function drawWifi(time) {
+  const n = N.home, p = proj([n.x - 1, 14, n.z + 1]);
+  if (p[2] < NEAR) return;
+  const s = p[3] * .9;
+  g.lineWidth = Math.max(1.5, s * .5); g.lineCap = 'round';
+  for (let i = 0; i < 3; i++) {
+    const a = ((time * .9 + i / 3) % 1);
+    g.strokeStyle = `rgba(79,70,229,${(1 - a) * .8})`;
+    g.beginPath(); g.arc(p[0], p[1], s * (1.4 + a * 7), -2.3, -.84); g.stroke();
+  }
+}
+function drawHotRing(hs, time) {
+  for (const hot of hs) {
+    if (hot.ring === false) continue;
+    const p = proj(hot.p); if (p[2] < NEAR) continue;
+    const r = Math.max(13, (hot.r || 7) * p[3]) * (1 + .1 * Math.sin(time * 4));
+    g.strokeStyle = hot.col || 'rgba(245,165,36,.95)'; g.lineWidth = 3;
+    g.beginPath(); g.arc(p[0], p[1], r, 0, 7); g.stroke();
+  }
+}
+function drawLabels(list) {
+  const fs = W > 1500 ? 16 : 14.5, placed = [];
+  const items = list.map(l => ({ l, p: proj(l.p) })).filter(o => o.p[2] > NEAR).sort((a, b) => b.p[1] - a.p[1]);
+  g.textBaseline = 'middle'; g.textAlign = 'center';
+  for (const { l, p } of items) {
+    g.font = `700 ${fs}px "Segoe UI",system-ui,sans-serif`;
+    let w = g.measureText(l.t).width;
+    if (l.sub) { g.font = `600 ${fs - 1.5}px Consolas,Menlo,monospace`; w = Math.max(w, g.measureText(l.sub).width); }
+    w += 18;
+    const hh = l.sub ? fs * 2.75 : fs * 1.75;
+    let x = clamp(p[0], w / 2 + 6, W - w / 2 - 6), y = p[1] - 18 - hh;
+    for (let tries = 0; tries < 8; tries++) {
+      const hit = placed.find(r => Math.abs(r.x - x) < (r.w + w) / 2 + 3 && y < r.y + r.h + 3 && y + hh > r.y - 3);
+      if (!hit) break; y = hit.y - hh - 4;
+    }
+    placed.push({ x, y, w, h: hh });
+    g.strokeStyle = 'rgba(28,36,66,.55)'; g.lineWidth = 1.6; g.beginPath(); g.moveTo(p[0], p[1]); g.lineTo(x, y + hh); g.stroke();
+    g.fillStyle = l.bg || 'rgba(255,255,255,.96)'; roundRect(x - w / 2, y, w, hh, 8); g.fill();
+    g.fillStyle = l.fg || '#1c2442'; g.font = `700 ${fs}px "Segoe UI",system-ui,sans-serif`;
+    g.fillText(l.t, x, y + (l.sub ? fs * .92 : hh / 2 + .5));
+    if (l.sub) { g.font = `600 ${fs - 1.5}px Consolas,Menlo,monospace`; g.fillStyle = l.fg || '#4f46e5'; g.fillText(l.sub, x, y + fs * 2); }
+  }
+}
+function drawDownMarks() {
+  for (const k in N) {
+    const n = N[k]; if (!n.down) continue;
+    const p = proj([n.x, 9.5, n.z]); if (p[2] < NEAR) continue;
+    const s = Math.max(9, p[3] * 3);
+    g.strokeStyle = '#fff'; g.lineWidth = s * .62; g.lineCap = 'round';
+    g.beginPath(); g.moveTo(p[0] - s, p[1] - s); g.lineTo(p[0] + s, p[1] + s); g.moveTo(p[0] + s, p[1] - s); g.lineTo(p[0] - s, p[1] + s); g.stroke();
+    g.strokeStyle = '#d13c3c'; g.lineWidth = s * .36; g.stroke();
+  }
+}
+function setDown(id, v) {
+  N[id].down = v;
+  const [b, a1, a2] = routerParts[id];
+  recolor(b, v ? '#a94a4a' : '#4f55d6'); recolor(a1, v ? '#7c3a3a' : '#39407e'); recolor(a2, v ? '#7c3a3a' : '#39407e');
+}
+
+function drawWorld(dt, time) {
+  setupCam(dt);
+  drawSky(time);
+  drawGround(time);
+  const list = [];
+  for (const G of groups) {
+    if (G.under) { for (const P of G.parts) drawPart(P, time); continue; }
+    G.d = Math.hypot(G.c[0] - E[0], G.c[1] - E[1], G.c[2] - E[2]);
+    list.push(G);
+  }
+  const ps = packets.map(p => { const pos = packetPos(p); p.pos = pos; return { pk: p, d: Math.hypot(pos[0] - E[0], pos[1] - E[1], pos[2] - E[2]) - 6 }; });
+  const sp = sprites.map(s => ({ sp: s, d: Math.hypot(s.p[0] - E[0], s.p[1] - E[1], s.p[2] - E[2]) }));
+  const all = list.concat(ps, sp).sort((a, b) => b.d - a.d);
+  for (const o of all) {
+    if (o.parts) for (const P of o.parts) drawPart(P, time);
+    else if (o.pk) {
+      const p = o.pk, c = proj(p.pos); if (c[2] < NEAR) continue;
+      const s = clamp(c[3] * .19 * p.sc, .5, 1.5);
+      p.sx = c[0]; p.sy = c[1]; p.ss = s;
+      const gnd = proj([p.pos[0], .2, p.pos[2]]);
+      g.fillStyle = 'rgba(30,40,60,.25)'; g.beginPath(); g.ellipse(gnd[0], gnd[1], 16 * s, 6 * s, 0, 0, 7); g.fill();
+      drawEnvelope(c[0], c[1], s, p.kind, p.label);
+    } else { const c = proj(o.sp.p); if (c[2] > NEAR) o.sp.draw(c[0], c[1], clamp(c[3] * .2, .5, 1.8), time); }
+  }
+  drawWifi(time);
+  drawDownMarks();
+  for (const r of rings.slice()) {
+    r.t += dt * 1.6; if (r.t > 1) { rings.splice(rings.indexOf(r), 1); continue; }
+    const p = proj(r.p); if (p[2] < NEAR) continue;
+    g.strokeStyle = r.c; g.globalAlpha = 1 - r.t; g.lineWidth = 4;
+    g.beginPath(); g.ellipse(p[0], p[1], p[3] * (2 + r.t * 13), p[3] * (1 + r.t * 7), 0, 0, 7); g.stroke(); g.globalAlpha = 1;
+  }
+  drawHotRing(S.hots, time);
+  drawLabels(S.labels ? S.labels() : []);
+}
+
+/* ---------- Globus ---------- */
+const LAND = [
+  [[-168,66],[-157,71],[-128,70],[-100,73],[-82,72],[-64,62],[-56,52],[-66,45],[-75,38],[-81,31],[-80,25],[-84,30],[-97,27],[-97,19],[-88,16],[-83,10],[-78,8],[-84,8],[-92,14],[-105,20],[-112,28],[-118,33],[-124,40],[-124,48],[-133,56],[-150,60],[-162,56],[-166,62]],
+  [[-78,8],[-60,11],[-50,1],[-35,-6],[-39,-15],[-48,-26],[-58,-37],[-65,-45],[-69,-54],[-75,-50],[-72,-30],[-70,-18],[-81,-5],[-79,2]],
+  [[-6,35],[10,37],[20,32],[32,31],[37,20],[43,12],[51,11],[40,-3],[40,-15],[33,-26],[20,-35],[15,-25],[12,-6],[8,4],[-8,4],[-17,14],[-16,22]],
+  [[-9,37],[-9,43],[-1,44],[-4,48],[3,51],[8,54],[8,57],[12,54],[20,55],[24,59],[22,65],[17,61],[12,56],[6,59],[14,67],[26,71],[40,67],[44,68],[60,69],[70,73],[90,76],[110,77],[130,72],[150,71],[170,70],[180,66],[170,60],[162,56],[156,51],[155,59],[142,59],[135,54],[141,48],[131,43],[128,38],[126,35],[122,40],[118,38],[122,31],[120,25],[110,20],[106,18],[109,12],[104,9],[100,13],[103,2],[98,8],[97,16],[91,22],[80,15],[78,8],[73,18],[70,22],[62,25],[56,26],[50,30],[56,24],[59,22],[52,16],[44,13],[39,21],[35,28],[35,36],[28,37],[26,40],[23,38],[20,40],[14,45],[18,40],[16,38],[12,43],[8,44],[3,43],[0,39],[-5,36]],
+  [[114,-22],[122,-18],[131,-12],[137,-12],[140,-17],[146,-19],[153,-27],[150,-37],[143,-39],[135,-34],[125,-33],[115,-34]],
+  [[-45,60],[-22,70],[-18,77],[-35,83],[-60,82],[-70,77],[-55,70]],
+  [[-6,50],[1,51],[0,54],[-3,58],[-6,57],[-4,53]],
+  [[130,32],[136,34],[141,36],[142,41],[145,44],[141,45],[139,38],[132,35]],
+  [[95,5],[105,-5],[102,-4]], [[109,1],[117,6],[118,0],[114,-4],[110,-2]], [[131,-1],[141,-3],[150,-9],[141,-9],[135,-4]],
+  [[105,-6],[114,-7],[114,-8.5],[106,-7.5]], [[120,18],[122,18],[126,7],[122,7]], [[44,-16],[49,-13],[50,-16],[47,-25],[44,-24]],
+  [[173,-35],[178,-38],[174,-41],[167,-46],[171,-42]], [[-24,65],[-14,66],[-14,64],[-22,63]],
+];
+const HOLES = [[[-94,60],[-80,63],[-78,55],[-82,51],[-92,57]], [[47,45],[53,45],[54,38],[50,37],[48,41]]];
+function inPoly(x, y, poly) {
+  let c = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const a = poly[i], b = poly[j];
+    if ((a[1] > y) !== (b[1] > y) && x < (b[0] - a[0]) * (y - a[1]) / (b[1] - a[1]) + a[0]) c = !c;
+  }
+  return c;
+}
+const ll = (lat, lon) => { const a = lat * Math.PI / 180, o = lon * Math.PI / 180; return [Math.cos(a) * Math.sin(o), Math.sin(a), Math.cos(a) * Math.cos(o)]; };
+const dots = [];
+{ const M = 11000, ga = Math.PI * (3 - Math.sqrt(5));
+  for (let i = 0; i < M; i++) {
+    const y = 1 - 2 * (i + .5) / M, lat = Math.asin(y) * 180 / Math.PI;
+    let lon = (i * ga * 180 / Math.PI) % 360; if (lon > 180) lon -= 360;
+    if (LAND.some(p => inPoly(lon, lat, p)) && !HOLES.some(p => inPoly(lon, lat, p))) dots.push(ll(lat, lon));
+  }
+}
+const CITIES = [
+  ['Toshkent', 41.3, 69.3], ['Istanbul', 41, 29], ['Frankfurt', 50.1, 8.7], ['London', 51.5, -.1], ['Nyu-York', 40.7, -74],
+  ['San-Paulu', -23.5, -46.6], ['Keyptaun', -33.9, 18.4], ['Mumbay', 19, 72.8], ['Singapur', 1.3, 103.8], ['Tokio', 35.7, 139.7], ['Sidney', -33.9, 151.2],
+].map(c => ({ name: c[0], lat: c[1], lon: c[2], v: ll(c[1], c[2]) }));
+const TASH = CITIES[0];
+const WEB = [[0,1],[1,2],[2,3],[3,4],[4,5],[2,6],[1,7],[7,8],[8,9],[8,10],[0,7],[0,8],[0,9],[6,7],[4,9]];
+const globe = { yaw: -69 * Math.PI / 180, pitch: .55, gy: -69 * Math.PI / 180, gp: .55, zoom: 1, shots: [], spin: true };
+const stars = Array.from({ length: 150 }, () => [Math.random(), Math.random(), Math.random() * 1.5 + .4]);
+function rotG(v) {
+  const cy = Math.cos(globe.yaw), sy = Math.sin(globe.yaw), cp = Math.cos(globe.pitch), sp = Math.sin(globe.pitch);
+  const x = v[0] * cy + v[2] * sy, z = -v[0] * sy + v[2] * cy;
+  return [x, v[1] * cp - z * sp, v[1] * sp + z * cp];
+}
+function slerp(a, b, t) {
+  const w = Math.acos(clamp(dot(a, b), -1, 1)), s = Math.sin(w) || 1, p = Math.sin((1 - t) * w) / s, q = Math.sin(t * w) / s;
+  return [a[0] * p + b[0] * q, a[1] * p + b[1] * q, a[2] * p + b[2] * q];
+}
+function arcPath(a, b, GR, lift, upto) {
+  const ang = Math.acos(clamp(dot(a, b), -1, 1)), n = 30, m = Math.ceil(n * upto);
+  let on = false; g.beginPath();
+  for (let i = 0; i <= m; i++) {
+    const t = Math.min(i / n, upto), v = slerp(a, b, t), al = 1 + lift * ang * Math.sin(Math.PI * t), r = rotG([v[0] * al, v[1] * al, v[2] * al]);
+    const vis = r[2] > 0 || Math.hypot(r[0], r[1]) > 1;
+    if (vis) { const x = GR.x + r[0] * GR.r, y = GR.y - r[1] * GR.r; on ? g.lineTo(x, y) : g.moveTo(x, y); on = true; } else on = false;
+  }
+}
+function drawGlobe(dt, time) {
+  const v = viewport();
+  const intro = !$('#intro').classList.contains('gone');
+  if (globe.spin && !REDUCED) globe.gy -= dt * .07;
+  const k = 1 - Math.exp(-dt * 4);
+  globe.yaw += (globe.gy - globe.yaw) * k; globe.pitch += (globe.gp - globe.pitch) * k;
+  const bg = g.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, Math.max(W, H) * .75);
+  bg.addColorStop(0, '#16275c'); bg.addColorStop(1, '#070d24');
+  g.fillStyle = bg; g.fillRect(0, 0, W, H);
+  g.fillStyle = '#fff';
+  for (const s of stars) { g.globalAlpha = .35 + .4 * Math.sin(time + s[0] * 30) ** 2; g.fillRect(s[0] * W, s[1] * H, s[2], s[2]); }
+  g.globalAlpha = 1;
+  const cx = intro ? W / 2 : v.x + v.w / 2, cy = intro ? H / 2 : v.y + v.h / 2;
+  const GR = { x: cx, y: cy, r: Math.min(v.w, v.h) * (intro ? .46 : .4) * globe.zoom };
+  const gl = g.createRadialGradient(cx, cy, GR.r * .92, cx, cy, GR.r * 1.2);
+  gl.addColorStop(0, 'rgba(90,170,255,.5)'); gl.addColorStop(1, 'rgba(90,170,255,0)');
+  g.fillStyle = gl; g.beginPath(); g.arc(cx, cy, GR.r * 1.2, 0, 7); g.fill();
+  const oc = g.createRadialGradient(cx - GR.r * .35, cy - GR.r * .4, GR.r * .1, cx, cy, GR.r);
+  oc.addColorStop(0, '#3a8fd6'); oc.addColorStop(1, '#123f86');
+  g.fillStyle = oc; g.beginPath(); g.arc(cx, cy, GR.r, 0, 7); g.fill();
+  const ds = Math.max(1.6, GR.r / 135);
+  for (let pass = 0; pass < 2; pass++) {
+    g.fillStyle = pass ? '#c6f0a8' : '#6fb98f'; g.beginPath();
+    for (const d of dots) {
+      const r = rotG(d); if (r[2] <= 0 || (r[2] > .42) !== !!pass) continue;
+      g.rect(cx + r[0] * GR.r - ds / 2, cy - r[1] * GR.r - ds / 2, ds, ds);
+    }
+    g.fill();
+  }
+  g.lineCap = 'round'; g.lineWidth = 1.5; g.strokeStyle = 'rgba(255,214,120,.55)';
+  for (const [a, b] of WEB) { arcPath(CITIES[a].v, CITIES[b].v, GR, .16, 1); g.stroke(); }
+  // Tarmoqda doim harakatlanadigan signallar
+  WEB.forEach(([a, b], i) => {
+    const t = (time * .22 + i * .37) % 1, ang = Math.acos(dot(CITIES[a].v, CITIES[b].v)), s = slerp(CITIES[a].v, CITIES[b].v, t), al = 1 + .16 * ang * Math.sin(Math.PI * t);
+    const r = rotG([s[0] * al, s[1] * al, s[2] * al]);
+    if (r[2] > 0 || Math.hypot(r[0], r[1]) > 1) { g.fillStyle = '#ffe9a8'; g.beginPath(); g.arc(cx + r[0] * GR.r, cy - r[1] * GR.r, 2.6, 0, 7); g.fill(); }
+  });
+  for (const s of globe.shots.slice()) {
+    s.t += dt / 1.5;
+    const tt = Math.min(s.t, 1);
+    g.strokeStyle = '#ff7a4d'; g.lineWidth = 4; arcPath(TASH.v, s.city.v, GR, .3, tt); g.stroke();
+    if (s.t > 1 && !s.done) { s.done = true; s.cb(); }
+    if (s.t > 2.6) globe.shots.splice(globe.shots.indexOf(s), 1);
+  }
+  g.font = '700 15px "Segoe UI",system-ui,sans-serif'; g.textBaseline = 'middle'; g.textAlign = 'center';
+  for (const c of CITIES) {
+    const r = rotG(c.v); c.vis = r[2] > .05; if (!c.vis || intro) continue;
+    const x = cx + r[0] * GR.r, y = cy - r[1] * GR.r; c.sx = x; c.sy = y;
+    const me = c === TASH, hit = S.sent && S.sent.has(c.name);
+    g.fillStyle = me ? '#f5a524' : hit ? '#3fe0a0' : '#fff'; g.beginPath(); g.arc(x, y, me ? 8 : 6.5, 0, 7); g.fill();
+    g.strokeStyle = g.fillStyle; g.lineWidth = 2; g.globalAlpha = .6; g.beginPath(); g.arc(x, y, 11 + 4 * Math.sin(time * 3 + c.lon), 0, 7); g.stroke(); g.globalAlpha = 1;
+    const tw = g.measureText(c.name).width + 14;
+    g.fillStyle = 'rgba(7,13,36,.78)'; const ly = c.name === 'Frankfurt' ? y + 12 : y - 33;
+    roundRect(x - tw / 2, ly, tw, 22, 6); g.fill();
+    g.fillStyle = '#fff'; g.fillText(c.name, x, ly + 11.5);
+  }
+}
+
+/* ---------- Kirish: sichqoncha va sensor ---------- */
+const ptrs = new Map(); let dragged = 0, pinch = 0;
+cv.addEventListener('pointerdown', e => { cv.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, [e.clientX, e.clientY]); dragged = 0; pinch = 0; cv.classList.add('drag'); });
+cv.addEventListener('pointermove', e => {
+  const q = ptrs.get(e.pointerId);
+  if (!q) { cv.classList.toggle('point', !!hitTest(e.clientX, e.clientY)); return; }
+  const dx = e.clientX - q[0], dy = e.clientY - q[1];
+  ptrs.set(e.pointerId, [e.clientX, e.clientY]);
+  if (ptrs.size === 2) {
+    const [a, b] = [...ptrs.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]);
+    if (pinch) cam.g.dist = clamp(cam.g.dist * pinch / d, 45, 210);
+    pinch = d; dragged = 99; return;
+  }
+  dragged += Math.abs(dx) + Math.abs(dy);
+  if (S.view === 'globe') { globe.spin = false; globe.gy += dx * .006; globe.gp = clamp(globe.gp + dy * .006, -1.2, 1.2); globe.yaw = globe.gy; globe.pitch = globe.gp; }
+  else { cam.g.yaw -= dx * .0065; cam.g.pitch = clamp(cam.g.pitch + dy * .005, .26, 1.4); }
+});
+function endPtr(e) {
+  const had = ptrs.delete(e.pointerId); cv.classList.remove('drag');
+  if (had && dragged < 7 && e.type === 'pointerup') { const f = hitTest(e.clientX, e.clientY); if (f) f(); }
+}
+cv.addEventListener('pointerup', endPtr); cv.addEventListener('pointercancel', endPtr);
+cv.addEventListener('wheel', e => { e.preventDefault(); if (S.view === 'world') cam.g.dist = clamp(cam.g.dist * Math.exp(e.deltaY * .001), 45, 210); }, { passive: false });
+function hitTest(x, y) {
+  if (S.view === 'globe') {
+    let best = null, bd = 24;
+    for (const c of CITIES) if (c.vis && c !== TASH && c.sx != null) { const d = Math.hypot(c.sx - x, c.sy - y); if (d < bd) { bd = d; best = c; } }
+    return best && S.onCity ? () => S.onCity(best) : null;
+  }
+  for (const p of packets) if (S.onPacket && p.sx != null && Math.hypot(p.sx - x, p.sy - y) < 34 * Math.max(p.ss, .8)) return () => S.onPacket(p);
+  let best = null, bd = 1e9;
+  for (const hot of S.hots) {
+    const p = proj(hot.p); if (p[2] < NEAR) continue;
+    const d = Math.hypot(p[0] - x, p[1] - y), r = Math.max(24, (hot.r || 7) * p[3]);
+    if (d < r && d < bd) { bd = d; best = hot; }
+  }
+  return best ? best.on : null;
+}
+
+/* ---------- Asosiy sikl ---------- */
+let last = performance.now(), slow = 0, fade = 0, fadeCol = '255,255,255';
+function frame(now) {
+  const dt = Math.min(.1, (now - last) / 1000); last = now;
+  const time = now / 1000;
+  // Sust kompyuterlarda aniqlikni avtomatik pasaytirish
+  if (dt > .03) { if (++slow > 50 && DPR > 1) { DPR = 1; slow = 0; resize(); } } else slow = Math.max(0, slow - 1);
+  for (const t of tweens.slice()) {
+    t.t += dt * 1000; const k = Math.min(1, t.t / t.ms); t.fn(k);
+    if (k >= 1) { tweens.splice(tweens.indexOf(t), 1); t.res(); }
+  }
+  g.setTransform(DPR, 0, 0, DPR, 0, 0);
+  if (S.view === 'globe') drawGlobe(dt, time);
+  else { updatePackets(dt); drawWorld(dt, time); }
+  if (fade > 0) { g.fillStyle = `rgba(${fadeCol},${fade})`; g.fillRect(0, 0, W, H); }
+  requestAnimationFrame(frame);
+}
+
+/* ---------- Boblar ---------- */
+const S = { view: 'globe', ch: -1, run: 0, hots: [], labels: null, onCity: null, onPacket: null, done: new Set(), need: {}, sent: new Set(), site: null, dnsExtra: [] };
+const panel = $('#panel');
+const OVER = { t: [0, 2, 4], yaw: .35, pitch: .78, dist: 150 };
+const at = (id, y) => [N[id].x, y == null ? N[id].top : y, N[id].z];
+const nameL = (id, sub, o) => Object.assign({ p: at(id), t: N[id].name, sub }, o);
+const alive = run => run === S.run;
+
+function head(i, title) {
+  return [h('div', { class: 'eyebrow' }, `${i + 1}-bob`), h('h2', null, title)];
+}
+function para(html, cls) { return h('p', { html, class: cls }); }
+function note(html) { return h('div', { class: 'note', html }); }
+function tasks(list) {
+  const ch = S.ch, ul = h('ul', { class: 'tasks' });
+  S.need[ch] = list.length;
+  for (const [id, t] of list) ul.append(h('li', { 'data-id': id, class: S.done.has(ch + ':' + id) ? 'ok' : null }, t));
+  ul.tick = id => { S.done.add(ch + ':' + id); const li = ul.querySelector(`[data-id="${id}"]`); if (li) li.classList.add('ok'); renderSteps(); };
+  ul.has = id => S.done.has(ch + ':' + id);
+  return ul;
+}
+function feedback() {
+  const e = h('div', { class: 'fb' });
+  e.say = (html, kind) => { e.className = 'fb ' + (kind || ''); e.innerHTML = html; };
+  return e;
+}
+function navRow(i) {
+  return h('div', { id: 'nav' },
+    i > 0 ? h('button', { class: 'btn alt', on: { click: () => go(i - 1) } }, '← Orqaga') : h('span'),
+    i < CH.length - 1 ? h('button', { class: 'btn', on: { click: () => go(i + 1) } }, CH[i + 1].next || 'Keyingi bob →') : null);
+}
+function renderSteps() {
+  const nav = $('#steps'); nav.innerHTML = '';
+  CH.forEach((c, i) => {
+    const need = S.need[i], got = [...S.done].filter(d => d.startsWith(i + ':')).length;
+    const ok = need && got >= need;
+    nav.append(h('button', { class: (i === S.ch ? 'on ' : '') + (ok ? 'ok' : ''), title: c.t, 'aria-current': i === S.ch ? 'step' : null, on: { click: () => go(i) } },
+      h('i', null, ok ? '✓' : String(i + 1)), h('span', null, c.t)));
+  });
+  const cur = nav.querySelector('.on'); if (cur && cur.scrollIntoView) cur.scrollIntoView({ block: 'nearest', inline: 'center' });
+}
+// Tez almashtirilganda ham oxirgi so'ralgan ko'rinishda to'xtaydi
+async function setView(to) {
+  S.want = to;
+  if (S.moving) return;
+  S.moving = true;
+  while (S.view !== S.want) await switchView(S.want);
+  S.moving = false;
+}
+async function switchView(to) {
+  if (to === 'world') {
+    globe.spin = false;
+    const y = -TASH.lon * Math.PI / 180, two = Math.PI * 2;
+    globe.gy = globe.yaw + ((((y - globe.yaw) % two) + two + Math.PI) % two - Math.PI); globe.gp = TASH.lat * Math.PI / 180;
+    fadeCol = '255,255,255';
+    await tween(REDUCED ? 200 : 1300, k => { globe.zoom = 1 + k * k * k * 9; fade = Math.max(0, k * 1.6 - .6); });
+    S.view = 'world'; globe.zoom = 1; $('#hint').textContent = "Sichqoncha bilan aylantiring · g'ildirak bilan yaqinlashing";
+    cam.dist = 250; cam.pitch = 1.25; cam.yaw = .9;
+    await tween(500, k => { fade = 1 - k; });
+  } else {
+    fadeCol = '8,16,44';
+    await tween(350, k => { fade = k; });
+    S.view = 'globe'; globe.spin = true; $('#hint').textContent = "Globusni sichqoncha bilan aylantiring";
+    await tween(450, k => { fade = 1 - k; });
+  }
+  fade = 0;
+}
+function go(i) {
+  S.run++; clearPackets(); sprites.length = 0; globe.shots.length = 0;
+  S.hots = []; S.labels = null; S.onCity = null; S.onPacket = null;
+  for (const id of ['r1', 'r2', 'r3', 'r4', 'r5', 'r6']) if (N[id].down) setDown(id, false);
+  if (S.site && S.site.off) { S.site.off = false; const r = racks[S.site.rack]; r.off = false; setRackLook(r); }
+  S.ch = i;
+  panel.innerHTML = ''; panel.scrollTop = 0;
+  const c = CH[i];
+  setView(c.view || 'world');
+  if (c.cam) fly(c.cam);
+  c.enter(S.run);
+  panel.append(navRow(i));
+  renderSteps();
+}
+
+/* 1-bob: globus */
+function ch1() {
+  S.sent = S.sent || new Set();
+  const list = tasks([['a', "Istalgan shaharni bosib, Toshkentdan signal yuboring"], ['b', "Yana 2 ta boshqa shaharga signal yuboring"]]);
+  const fb = feedback();
+  fb.say('Globusdagi oq nuqtalardan birini bosing. Ko\'rinmasa, globusni aylantiring.');
+  S.onCity = c => {
+    globe.spin = false;
+    globe.shots.push({ city: c, t: 0, cb: () => {
+      S.sent.add(c.name);
+      const km = Math.round(Math.acos(dot(TASH.v, c.v)) * 6371 / 10) * 10, ms = Math.round(km / 200);
+      fb.say(`<b>Toshkent → ${c.name}</b><br>Masofa: taxminan ${km.toLocaleString('ru-RU')} km<br>Yetib borish vaqti: kamida ${ms} ms (1 soniyaning ${ms}/1000 qismi)<br><small>Ko'z ochib yumish taxminan 300 ms davom etadi.</small>`, 'good');
+      list.tick('a'); if (S.sent.size >= 3) list.tick('b');
+    } });
+  };
+  panel.append(...head(0, "Internet — ulangan kompyuterlar tarmog'i"),
+    para("Dunyodagi millionlab kompyuter, telefon va serverlar bir-biriga ulangan. Ular shu tarmoq orqali bir-biri bilan <b>ma'lumot almashadi</b>."),
+    note("<b>Internet osmonda emas.</b> Ma'lumot asosan yer ostidagi va dengiz tubidagi kabellardan oqadi. Wi-Fi esa faqat qurilmangizdan uydagi routergacha bo'lgan qisqa yo'l."),
+    h('h3', null, 'Amaliyot: signal yuboring'), list, fb,
+    para('<small>Vaqt yorug\'likning kabeldagi tezligi (taxminan 200 000 km/s) bilan to\'g\'ri chiziq bo\'yicha hisoblangan. Haqiqiy kabel yo\'li uzunroq.</small>'));
+}
+
+/* 2-bob: paketlar */
+function ch2(run) {
+  const list = tasks([
+    ['a', 'Xabarni paketlarga bo\'lib yuboring'],
+    ['b', 'Bitta routerni o\'chiring va xabarni yana yuboring'],
+    ['c', 'Yo\'lni butunlay to\'sib ko\'ring: paket yetib bormaydi'],
+  ]);
+  const inp = h('input', { class: 'inp', value: "Ertaga maktabda ko'rishamiz", maxlength: 40, 'aria-label': 'Xabar matni' });
+  const slots = h('div', { class: 'slots' }), fb = feedback();
+  const btn = h('button', { class: 'btn', on: { click: send } }, 'Bo\'lib yuborish');
+  const reset = h('button', { class: 'btn alt', on: { click: () => { routers.forEach(id => setDown(id, false)); fb.say('Barcha routerlar yoqildi.'); } } }, 'Routerlarni yoqish');
+  const routers = ['r1', 'r2', 'r3', 'r4', 'r5', 'r6'];
+  S.hots = routers.map(id => ({ p: at(id, 4), r: 6, on: () => { setDown(id, !N[id].down); } }));
+  S.labels = () => [nameL('home', N.home.ip), nameL('friend', N.friend.ip)];
+  async function send() {
+    const msg = inp.value.trim() || 'Salom';
+    const size = Math.max(3, Math.ceil(msg.length / 8)), parts = [];
+    for (let i = 0; i < msg.length; i += size) parts.push(msg.slice(i, i + size));
+    btn.disabled = true; slots.innerHTML = ''; fb.say('Paketlar yo\'lda. Harakatlanayotganda routerni o\'chirib ham ko\'ring!');
+    const els = parts.map((t, i) => { const e = h('div', { class: 'slot' }, h('small', null, `№${i + 1}`), h('b', null, ' ')); slots.append(e); return e; });
+    const order = [], downAtStart = routers.some(id => N[id].down);
+    const all = parts.map(async (t, i) => {
+      await wait(i * 260);
+      if (!alive(run)) return 'cancel';
+      const r = await sendPacket('home', 'friend', { kind: 'data', label: i + 1, wander: true, speed: rand(26, 44) });
+      if (!alive(run)) return r;
+      if (r === 'ok') { els[i].className = 'slot in'; els[i].querySelector('b').textContent = t; order.push(i + 1); }
+      else { els[i].className = 'slot lost'; els[i].querySelector('b').textContent = '✕'; }
+      return r;
+    });
+    const res = await Promise.all(all);
+    if (!alive(run)) return;
+    btn.disabled = false;
+    const lost = res.filter(r => r === 'lost').length;
+    if (lost) {
+      fb.say(`${lost} ta paket yetib bormadi: do'stingiz uyigacha ishlaydigan yo'l qolmagan.`, 'bad');
+      list.tick('c');
+    } else {
+      const mixed = order.some((v, i) => i && v < order[i - 1]);
+      fb.say(`Kelish tartibi: ${order.join(', ')}. ${mixed ? 'Paketlar aralash keldi, lekin' : 'Har bir paketda'} tartib raqami bor, shuning uchun qabul qiluvchi xabarni to'g'ri yig'di: <b>${msg.replace(/</g, '&lt;')}</b>`, 'good');
+      list.tick('a');
+      if (downAtStart || routers.some(id => N[id].down)) list.tick('b');
+    }
+  }
+  panel.append(...head(1, "Ma'lumot paketlarda yuradi"),
+    para("Katta ma'lumot bir butun holda yuborilmaydi. U kichik bo'laklarga — <b>paketlarga</b> bo'linadi. Har bir paketda «kimga», «kimdan» manzili va tartib raqami bor."),
+    para("<b>Router</b> — yo'l chorrahasi: paketni manzilga yaqinroq keyingi qadamga uzatadi. Bir yo'l buzilsa, paket boshqa yo'ldan ketadi."),
+    h('h3', null, "Amaliyot: do'stingizga xabar yuboring"),
+    h('div', { class: 'row' }, inp, btn), slots, list,
+    para('Xaritadagi sariq halqali routerni bossangiz, u o\'chadi yoki yonadi.'),
+    h('div', { class: 'row' }, reset), fb);
+}
+
+/* 3-bob: IP va domen */
+function ch3(run) {
+  const list = tasks([['a', 'Paketlarni 3 ta manzilga yetkazing'], ['b', 'Barcha yozuvlarni to\'g\'ri ajrating']]);
+  const targets = shuffle(['kun', 'git', 'gov']);
+  let round = 0, reveal = new Set();
+  const prompt = h('div', { class: 'big mono' }), fb = feedback(), box1 = h('div', { class: 'card' }, h('div', null, 'Paket manzili:'), prompt, fb);
+  S.labels = () => ['kun', 'git', 'gov'].map(id => reveal.has(id) ? { p: at(id), t: N[id].domain, sub: N[id].ip, bg: '#dbf5ec' } : { p: at(id), t: 'Server', sub: N[id].ip }).concat([nameL('home', N.home.ip)]);
+  function ask() {
+    if (round >= 3) { prompt.textContent = 'Hammasi yetkazildi!'; return; }
+    prompt.textContent = N[targets[round]].ip;
+  }
+  let busy = false;
+  S.hots = ['kun', 'git', 'gov'].map(id => ({ p: at(id, N[id].top * .55), r: 9, ring: false, on: async () => {
+    if (busy || round >= 3) return;
+    const want = targets[round];
+    if (id !== want) { fb.say(`Bu binoning manzili <b class="mono">${N[id].ip}</b>. Raqamlarni solishtirib, boshqasini bosing.`, 'bad'); return; }
+    busy = true; fb.say('To\'g\'ri! Paket yo\'lga chiqdi...');
+    const r = await sendPacket('home', id, { kind: 'data', label: '✓', speed: 80 });
+    if (r !== 'ok' || !alive(run)) return;
+    reveal.add(id); round++; busy = false;
+    fb.say(`Bu server nomi <b>${N[id].domain}</b> ekan. Odam nomni eslab qoladi, kompyuter esa raqamni ishlatadi.`, 'good');
+    if (round === 3) list.tick('a');
+    ask();
+  } }));
+  ask();
+
+  const ITEMS = shuffle([
+    ['185.8.212.10', 'ip', "4 ta son, har biri 0–255 oralig'ida."],
+    ['kun.uz', 'dom', 'Odam eslab qoladigan nom.'],
+    ['300.14.2.9', 'no', "300 soni 255 dan katta, bunday IP bo'lmaydi."],
+    ['my.gov.uz', 'dom', 'Nuqtalar bor, lekin bu harflardan iborat nom.'],
+    ['8.8.8.8', 'ip', "4 ta son, har biri 0–255 oralig'ida."],
+    ['10.20.30', 'no', "Faqat 3 ta son bor, IPv4 da 4 ta bo'lishi kerak."],
+    ['github.com', 'dom', 'Odam eslab qoladigan nom.'],
+  ]);
+  let si = 0, misses = 0;
+  const word = h('div', { class: 'big mono' }), f2 = feedback(), cnt = h('small', null);
+  const showItem = () => { if (si < ITEMS.length) { word.textContent = ITEMS[si][0]; cnt.textContent = `${si + 1} / ${ITEMS.length}`; } else { word.textContent = 'Tayyor!'; cnt.textContent = ''; } };
+  const answer = k => {
+    if (si >= ITEMS.length) return;
+    const it = ITEMS[si];
+    if (k === it[1]) { f2.say(`To'g'ri. ${it[2]}`, 'good'); si++; showItem(); if (si === ITEMS.length) list.tick('b'); }
+    else { misses++; f2.say(`Yana o'ylab ko'ring: ${it[1] === 'no' ? 'sonlarni sanang va 255 bilan solishtiring.' : it[1] === 'ip' ? 'bu faqat sonlardan iborat.' : 'bu harflardan iborat.'}`, 'bad'); }
+  };
+  showItem();
+  panel.append(...head(2, 'IP-manzil va domen'),
+    para("<b>IP-manzil</b> — tarmoqdagi kompyuterning raqamli manzili. IPv4 manzil nuqta bilan ajratilgan <b>4 ta sondan</b> iborat, har biri 0 dan 255 gacha."),
+    para("<b>Domen</b> — odam eslab qoladigan nom: kun.uz, github.com."),
+    h('h3', null, '1-amaliyot: pochtachi bo\'ling'),
+    para('Quyidagi IP-manzilni xaritadagi binolardan toping va o\'sha binoni bosing.'), box1,
+    h('h3', null, '2-amaliyot: bu nima?'),
+    h('div', { class: 'card' }, cnt, word, h('div', { class: 'row' },
+      h('button', { class: 'btn alt', on: { click: () => answer('ip') } }, 'IP-manzil'),
+      h('button', { class: 'btn alt', on: { click: () => answer('dom') } }, 'Domen'),
+      h('button', { class: 'btn alt', on: { click: () => answer('no') } }, "Noto'g'ri IP"))), f2, list,
+    para("<small>Xaritadagi IP-manzillar o'quv namunasi.</small>"));
+}
+
+/* 4-bob: hosting */
+const TAKEN = ['kun.uz', 'github.com', 'my.gov.uz'];
+function ensureSite() {
+  if (S.site) return S.site;
+  const r = racks.find(q => !q.used);
+  r.mine = true; setRackLook(r);
+  S.site = { domain: 'mening-saytim.uz', rack: r.i, ip: r.ip, up: true, off: false };
+  return S.site;
+}
+function ch4(run) {
+  const list = tasks([['a', "O'zingizga domen tanlang"], ['b', "Hosting markazidan bo'sh server oling"], ['c', 'Sayt fayllarini serverga yuklang'], ['d', "Serverni o'chirib, saytni ochib ko'ring"]]);
+  const slot = h('div', { style: 'display:flex;flex-direction:column;gap:10px' }), fb = feedback();
+  let dom = S.site ? S.site.domain : null;
+  S.labels = () => {
+    const a = [nameL('dc')];
+    if (S.site) { const r = racks[S.site.rack]; a.push({ p: [r.x, 12, r.z], t: S.site.domain, sub: S.site.ip, bg: '#fff1d6' }); }
+    return a;
+  };
+  function step() {
+    slot.innerHTML = ''; S.hots = [];
+    if (!dom) {
+      const inp = h('input', { class: 'inp', placeholder: 'masalan: aziz-blog.uz', maxlength: 30, 'aria-label': 'Domen nomi' });
+      const take = () => {
+        const v = inp.value.trim().toLowerCase();
+        if (TAKEN.includes(v)) return fb.say(`<b>${v}</b> band. Har bir domen faqat bitta egaga tegishli. Boshqa nom tanlang.`, 'bad');
+        if (!/^[a-z0-9][a-z0-9-]{1,24}\.(uz|com|org|net)$/.test(v)) return fb.say("Domen lotin harflaridan iborat bo'lsin va .uz yoki .com bilan tugasin. Masalan: aziz-blog.uz", 'bad');
+        dom = v; list.tick('a'); fb.say(`<b>${v}</b> sizniki bo'ldi. Do'kon nomi bor, endi bino kerak.`, 'good'); step();
+      };
+      inp.addEventListener('keydown', e => { if (e.key === 'Enter') take(); });
+      slot.append(h('h3', null, '1-qadam: domen tanlang'), h('div', { class: 'row' }, inp, h('button', { class: 'btn', on: { click: take } }, 'Olish')));
+    } else if (!S.site) {
+      slot.append(h('h3', null, "2-qadam: server oling"), para("Xaritada sariq halqali <b>bo'sh</b> serverlardan birini bosing. To'q ko'k serverlar band: ularda boshqa saytlar ishlayapti."));
+      S.hots = racks.filter(r => !r.used).map(r => ({ p: [r.x, 7, r.z], r: 3.4, on: () => {
+        r.mine = true; setRackLook(r);
+        S.site = { domain: dom, rack: r.i, ip: r.ip, up: false, off: false };
+        list.tick('b'); fb.say(`Server sizga berildi. Uning IP-manzili: <b class="mono">${r.ip}</b>`, 'good'); step();
+      } }));
+    } else if (!S.site.up) {
+      const b = h('button', { class: 'btn', on: { click: async () => {
+        b.disabled = true; fly(OVER); fb.say('Fayllar uyingizdan hosting markaziga ketyapti...');
+        const names = ['index.html', 'style.css', 'rasm.png'];
+        await Promise.all(names.map(async (f, i) => { await wait(i * 500); if (alive(run)) await sendPacket('home', 'dc', { kind: 'file', label: f[0].toUpperCase(), speed: 70 }); }));
+        if (!alive(run)) return;
+        S.site.up = true; list.tick('c'); fb.say('Sayt serverga joylandi. Endi noutbukingizni yopsangiz ham sayt ishlaydi.', 'good'); step();
+      } } }, 'Fayllarni yuklash');
+      slot.append(h('h3', null, '3-qadam: fayllarni yuklang'), h('div', { class: 'card mono' }, 'index.html · style.css · rasm.png'), b);
+    } else {
+      const r = racks[S.site.rack];
+      const open = h('button', { class: 'btn', on: { click: async () => {
+        open.disabled = true; fly(OVER); fb.say(`Brauzer <b class="mono">${S.site.ip}</b> manziliga so'rov yubordi...`);
+        const a = await sendPacket('home', 'dc', { kind: 'data', label: '?', speed: 80 });
+        if (a !== 'ok' || !alive(run)) return;
+        if (S.site.off) {
+          await wait(700); if (!alive(run)) return;
+          fb.say("<b>Sayt ochilmadi.</b> So'rov yetib bordi, lekin server o'chiq, javob beradigan hech kim yo'q. Shuning uchun hosting serverlari kecha-kunduz (24/7) ishlaydi.", 'bad');
+          list.tick('d');
+        } else {
+          const b2 = await sendPacket('dc', 'home', { kind: 'reply', label: '✓', speed: 80 });
+          if (b2 !== 'ok' || !alive(run)) return;
+          fb.say(`Sayt ochildi! Lekin har safar <b class="mono">${S.site.ip}</b> ni yozish noqulay. Buni keyingi bobdagi DNS hal qiladi.`, 'good');
+        }
+        open.disabled = false;
+      } } }, 'Saytni IP orqali ochish');
+      const pw = h('button', { class: 'btn ' + (S.site.off ? 'alt' : 'warn'), on: { click: () => {
+        S.site.off = !S.site.off; r.off = S.site.off; setRackLook(r); fly(CH[3].cam);
+        fb.say(S.site.off ? "Server o'chirildi. Endi saytni ochib ko'ring." : 'Server yana ishlayapti.'); step();
+      } } }, S.site.off ? 'Serverni yoqish' : "Serverni o'chirish");
+      slot.append(h('h3', null, "4-qadam: sinab ko'ring"), h('div', { class: 'card' }, h('b', null, S.site.domain), ' · ', h('span', { class: 'mono' }, S.site.ip)), h('div', { class: 'row' }, open, pw));
+    }
+  }
+  panel.append(...head(3, 'Hosting — saytning uyi'),
+    para("Sayt ham oddiy fayllardan iborat. <b>Hosting</b> — shu fayllar saqlanadigan va 24/7 ishlaydigan server ijarasi."),
+    note("<b>O'xshatish:</b> domen — do'kon nomi, IP-manzil — uning aniq manzili, hosting — do'kon binosi."),
+    h('h3', null, "Amaliyot: o'z saytingizni oching"), slot, fb, list);
+  step();
+}
+
+/* 5-bob: DNS */
+function dnsRows() {
+  const base = ['kun', 'git', 'gov'].map(k => [N[k].domain, N[k].ip]);
+  return base.concat(S.dnsExtra);
+}
+const cleanDomain = v => v.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/.*$/, '');
+function ch5(run) {
+  const list = tasks([['a', 'kun.uz ning IP-manzilini toping'], ['b', "Kitobda yo'q domenni qidirib ko'ring"], ['c', "O'z domeningizni kitobga yozing va toping"]]);
+  const site = ensureSite();
+  const inp = h('input', { class: 'inp mono', value: 'kun.uz', maxlength: 30, 'aria-label': 'Domen', on: { keydown: e => { if (e.key === 'Enter') look(); } } });
+  const btn = h('button', { class: 'btn', on: { click: look } }, 'DNS\'dan so\'rash');
+  const tb = h('tbody'), fb = feedback();
+  const addBtn = h('button', { class: 'btn alt', on: { click: () => {
+    if (!S.dnsExtra.some(r => r[0] === site.domain)) S.dnsExtra.push([site.domain, site.ip]);
+    addBtn.disabled = true; drawBook(); inp.value = site.domain;
+    fb.say(`Yozuv qo'shildi: <b>${site.domain}</b> → <b class="mono">${site.ip}</b>. Endi uni qidiring.`, 'good');
+  } } }, `${site.domain} ni kitobga yozish`);
+  if (S.dnsExtra.length) addBtn.disabled = true;
+  function drawBook() {
+    tb.innerHTML = '';
+    for (const r of dnsRows()) tb.append(h('tr', null, h('td', null, r[0]), h('td', { class: 'mono' }, r[1])));
+  }
+  drawBook();
+  S.labels = () => [nameL('dns', N.dns.ip, { bg: '#e8e7fd' }), nameL('home')];
+  async function look() {
+    const d = cleanDomain(inp.value); if (!d) return;
+    btn.disabled = true; drawBook();
+    fb.say(`Brauzer so'rayapti: «<b>${d.replace(/</g, '&lt;')}</b> ning IP-manzili qaysi?»`);
+    const a = await sendPacket('home', 'dns', { kind: 'dns', label: '?', speed: 90 });
+    if (a !== 'ok' || !alive(run)) return;
+    const rows = [...tb.children], data = dnsRows(); let hit = -1;
+    for (let i = 0; i < rows.length; i++) {
+      rows[i].className = 'scan'; await wait(320); if (!alive(run)) return;
+      if (data[i][0] === d) { rows[i].className = 'hit'; hit = i; break; }
+      rows[i].className = '';
+    }
+    const r = await sendPacket('dns', 'home', { kind: 'reply', label: hit < 0 ? '✕' : 'IP', speed: 90 });
+    if (r !== 'ok' || !alive(run)) return;
+    btn.disabled = false;
+    if (hit < 0) {
+      fb.say(`<b>${d.replace(/</g, '&lt;')}</b> kitobda yo'q. IP-manzil topilmadi, shuning uchun brauzer saytga ulana olmaydi. Domendagi bitta xato harf ham shunga olib keladi.`, 'bad');
+      list.tick('b');
+    } else {
+      fb.say(`DNS javobi: <b>${d}</b> → <b class="mono">${data[hit][1]}</b>. Endi brauzer serverga ulana oladi.`, 'good');
+      if (d === 'kun.uz') list.tick('a');
+      if (d === site.domain) list.tick('c');
+    }
+  }
+  panel.append(...head(4, 'DNS — internetning telefon kitobi'),
+    para("Kompyuter <b>kun.uz</b> nomini tushunmaydi, unga IP-manzil kerak. Brauzer DNS serverdan so'raydi va DNS domenni IP-manzilga aylantirib beradi."),
+    note("Telefon kitobida odam ismini qidirib, raqamini topasiz. DNS ham xuddi shunday: <b>nom → raqam</b>."),
+    h('h3', null, "Amaliyot: DNS'dan so'rang"),
+    h('div', { class: 'row' }, inp, btn), fb,
+    h('table', { class: 'book' }, h('thead', null, h('tr', null, h('th', null, 'Domen'), h('th', null, 'IP-manzil'))), tb),
+    h('div', { class: 'row' }, addBtn), list);
+}
+
+/* 6-bob: sahifa ochilishi */
+const STEPS = [
+  ['url', 'Foydalanuvchi brauzerga domen yozadi'], ['dnsq', "Brauzer DNS'dan IP-manzilni so'raydi"], ['dnsa', 'DNS IP-manzilni qaytaradi'],
+  ['req', "Brauzer serverga so'rov yuboradi"], ['resp', 'Server sahifa fayllarini javob sifatida yuboradi'], ['render', 'Brauzer sahifani ekranda chizadi'],
+];
+const PAGES = {
+  'kun.uz': { c: '#e4674a', t: 'Yangiliklar', p: "Bugungi eng so'nggi xabarlar shu yerda.", img: 'Rasm' },
+  'github.com': { c: '#39407e', t: 'Kod omborlari', p: 'Dasturchilar loyihalarini shu yerda saqlaydi.', img: 'Rasm' },
+  'my.gov.uz': { c: '#2f9e96', t: 'Davlat xizmatlari', p: 'Ariza va xizmatlar bir joyda.', img: 'Rasm' },
+};
+function ch6(run) {
+  const list = tasks([['a', 'Bosqichlarni to\'g\'ri tartibga keltiring'], ['b', "Sahifani boshidan oxirigacha oching"]]);
+  const box2 = h('div', { style: 'display:flex;flex-direction:column;gap:10px' }), fb = feedback();
+  S.labels = () => [nameL('home'), nameL('dns'), nameL('kun'), nameL('git'), nameL('gov')].concat(S.site && S.site.up ? [nameL('dc')] : []);
+  function ordering() {
+    box2.innerHTML = '';
+    const seq = h('div', { class: 'seq' }); let n = 0;
+    fb.say('Avval nima bo\'ladi? Bosqichlarni to\'g\'ri tartibda birma-bir bosing.');
+    shuffle(STEPS).forEach(([id, t]) => {
+      const b = h('button', { on: { click: () => {
+        if (b.classList.contains('ok')) return;
+        if (STEPS[n][0] === id) {
+          n++; b.className = 'ok'; b.querySelector('i').textContent = n;
+          if (n === 6) { list.tick('a'); fb.say("Barakalla! Tartib to'g'ri. Endi shu yo'lni jonli ko'ramiz.", 'good'); wait(900).then(() => { if (alive(run)) sim(); }); }
+          else fb.say('To\'g\'ri, davom eting.', 'good');
+        } else {
+          b.className = 'no'; setTimeout(() => { if (b.className === 'no') b.className = ''; }, 500);
+          fb.say(n === 0 ? 'Hammasi nimadan boshlanadi? Foydalanuvchi nima qiladi?' : `«${STEPS[n - 1][1]}» bosqichidan keyin nima bo'ladi?`, 'bad');
+        }
+      } } }, h('i', null, '·'), t);
+      seq.append(b);
+    });
+    box2.append(h('h3', null, '1-amaliyot: tartibni tuzing'), seq,
+      h('button', { class: 'btn alt', on: { click: sim } }, "Tartibni o'tkazib yuborish"));
+  }
+  function sim() {
+    box2.innerHTML = '';
+    const domains = Object.keys(PAGES).concat(S.site && S.site.up && S.dnsExtra.length ? [S.site.domain] : []);
+    let dom = domains[0], gate = null;
+    const lockS = h('span', null, ''), ad = h('span', { class: 'ad' }, ''), view = h('div', { class: 'view blank' }, 'Bo\'sh sahifa');
+    const br = h('div', { class: 'br' }, h('div', { class: 'bar' }, lockS, ad), view);
+    const seq = h('div', { class: 'seq' }), rows = STEPS.map(([, t], i) => { const b = h('button', { disabled: true }, h('i', null, String(i + 1)), t); seq.append(b); return b; });
+    const chips = h('div', { class: 'row' });
+    const paint = () => { chips.innerHTML = ''; domains.forEach(d => chips.append(h('button', { class: 'btn ' + (d === dom ? '' : 'alt'), on: { click: () => { dom = d; paint(); } } }, d))); };
+    paint();
+    const stepBtn = h('button', { class: 'btn' }, 'Boshlash');
+    const autoBtn = h('button', { class: 'btn alt' }, 'Avtomatik');
+    let auto = false, running = false;
+    const pause = () => auto ? wait(650) : new Promise(r => { gate = r; stepBtn.disabled = false; stepBtn.textContent = 'Keyingi qadam →'; });
+    stepBtn.addEventListener('click', () => { if (gate) { const f = gate; gate = null; stepBtn.disabled = true; f(); } else if (!running) run6(); });
+    autoBtn.addEventListener('click', () => { auto = true; if (gate) { const f = gate; gate = null; stepBtn.disabled = true; f(); } else if (!running) run6(); });
+    const mark = i => { rows.forEach((r, q) => { r.className = q < i ? 'ok' : q === i ? 'now' : ''; }); rows[i].scrollIntoView({ block: 'nearest' }); };
+    async function run6() {
+      running = true; stepBtn.disabled = true; chips.style.display = 'none';
+      const srv = dom === 'kun.uz' ? 'kun' : dom === 'github.com' ? 'git' : dom === 'my.gov.uz' ? 'gov' : 'dc';
+      const ip = srv === 'dc' ? S.site.ip : N[srv].ip, pg = PAGES[dom] || { c: '#f2a31f', t: dom, p: "Bu mening birinchi saytim!", img: 'Rasm' };
+      view.className = 'view blank'; view.textContent = "Bo'sh sahifa"; ad.textContent = ''; lockS.textContent = '';
+      mark(0); fly(CH[5].cam);
+      for (let i = 1; i <= dom.length; i++) { ad.textContent = dom.slice(0, i); await wait(70); if (!alive(run)) return; }
+      lockS.textContent = '🔒';
+      fb.say(`Siz <b>${dom}</b> deb yozib, Enter bosdingiz.`); await pause(); if (!alive(run)) return;
+      mark(1); fb.say(`Brauzer domenni tushunmaydi. U DNS'dan so'raydi: «${dom} ning IP-manzili qaysi?»`);
+      if (await sendPacket('home', 'dns', { kind: 'dns', label: '?', speed: 70 }) !== 'ok' || !alive(run)) return;
+      await pause(); if (!alive(run)) return;
+      mark(2); fb.say(`DNS kitobdan topdi va javob qaytarmoqda: <b class="mono">${ip}</b>`);
+      if (await sendPacket('dns', 'home', { kind: 'reply', label: 'IP', speed: 70 }) !== 'ok' || !alive(run)) return;
+      await pause(); if (!alive(run)) return;
+      mark(3); fb.say(`Brauzer endi <b class="mono">${ip}</b> manziliga so'rov yubormoqda: «Menga bosh sahifani bering».`);
+      if (await sendPacket('home', srv, { kind: 'data', label: '?', speed: 70 }) !== 'ok' || !alive(run)) return;
+      await pause(); if (!alive(run)) return;
+      mark(4); fb.say('Server fayllarni paketlarga bo\'lib javob yubormoqda: HTML, CSS va rasm.');
+      await Promise.all(['H', 'C', 'R'].map(async (l, i) => { await wait(i * 380); if (alive(run)) await sendPacket(srv, 'home', { kind: 'file', label: l, speed: 70, wander: true }); }));
+      if (!alive(run)) return;
+      await pause(); if (!alive(run)) return;
+      mark(5); view.className = 'view'; br.scrollIntoView({ block: 'nearest' });
+      fb.say('Brauzer avval HTML kodni o\'qiydi...');
+      view.innerHTML = ''; view.append(h('pre', null, `<h1>${pg.t}</h1>\n<p>${pg.p}</p>\n<img src="rasm.png">`)); await wait(1300); if (!alive(run)) return;
+      fb.say('...so\'ng undagi matnni sahifaga joylaydi...');
+      view.innerHTML = ''; const pgE = h('div', { class: 'pg' }, h('h4', { style: 'color:#111;padding:0' }, pg.t), h('p', null, pg.p)); view.append(pgE); await wait(1100); if (!alive(run)) return;
+      fb.say('...CSS bilan bezaydi...');
+      pgE.querySelector('h4').style.cssText = `background:${pg.c};color:#fff;padding:6px 10px`; await wait(1000); if (!alive(run)) return;
+      pgE.append(h('div', { class: 'img', style: `background:${pg.c}` }, pg.img));
+      rows.forEach(r => { r.className = 'ok'; });
+      fb.say(`Tayyor! <b>${dom}</b> ochildi. Bu butun yo'l odatda bir soniyadan kam vaqt oladi.`, 'good');
+      list.tick('b');
+      running = false; auto = false; chips.style.display = ''; stepBtn.disabled = false; stepBtn.textContent = 'Yana ochish';
+    }
+    box2.append(h('h3', null, '2-amaliyot: sahifani oching'), chips, br, h('div', { class: 'row' }, stepBtn, autoBtn), seq);
+    fb.say('Saytni tanlang va «Boshlash» tugmasini bosing.');
+  }
+  panel.append(...head(5, 'Veb-sahifa qanday ochiladi?'),
+    para("<b>Brauzer</b> (Chrome, Edge, Firefox, Safari) sahifani serverdan so'raydi va ekranda ko'rsatadi. Har safar sayt ochganingizda 6 ta bosqich bajariladi."),
+    fb, box2, list);
+  ordering();
+}
+
+/* 7-bob: HTTP va HTTPS */
+const scramble = s => { const a = 'aZ3x9QkP7mW2rT8vB5nL1yC6dH4sJ0'; let o = ''; for (let i = 0; i < Math.max(s.length, 14); i++) o += pick([...a, '#', '%', '$', '&']); return o; };
+function ch7(run) {
+  const list = tasks([
+    ['a', "HTTP'da login yuborib, ushlovchi nimani ko'rganini ko'ring"],
+    ['b', "HTTPS'da yuborib, farqini ko'ring"],
+    ['c', "Ushlovchi rolida har ikki rejimda paket tuting"],
+    ['d', "Uchta saytda to'g'ri qaror qabul qiling"],
+  ]);
+  let mode = 'http', stream = false, caughtH = 0, caughtS = 0;
+  const hacker = { p: [-30, 3, 17], last: 0, draw(x, y, s) {
+    g.fillStyle = 'rgba(30,40,60,.25)'; g.beginPath(); g.ellipse(x, y + 24 * s, 24 * s, 8 * s, 0, 0, 7); g.fill();
+    g.fillStyle = '#2b2f4a'; roundRect(x - 16 * s, y - 10 * s, 32 * s, 36 * s, 11 * s); g.fill();
+    g.beginPath(); g.arc(x, y - 18 * s, 15 * s, 0, 7); g.fill();
+    g.fillStyle = '#e9c3a0'; g.beginPath(); g.arc(x, y - 16 * s, 9 * s, 0, 7); g.fill();
+    g.fillStyle = '#1c2442'; g.fillRect(x - 6 * s, y - 19 * s, 12 * s, 3.4 * s);
+    g.strokeStyle = '#f5a524'; g.lineWidth = 4 * s; g.beginPath(); g.arc(x + 25 * s, y - 2 * s, 11 * s, 0, 7); g.stroke();
+    g.beginPath(); g.moveTo(x + 17 * s, y + 6 * s); g.lineTo(x + 9 * s, y + 15 * s); g.stroke();
+  } };
+  sprites.push(hacker);
+  S.labels = () => [{ p: [hacker.p[0], 8, hacker.p[2]], t: 'Ushlovchi', bg: '#1c2442', fg: '#fff' }, nameL('home'), nameL('gov')];
+  const seg = h('div', { class: 'seg', role: 'group', 'aria-label': 'Protokol' });
+  const paint = () => { seg.innerHTML = ''; [['http', 'HTTP', 'h'], ['https', 'HTTPS 🔒', 's']].forEach(([k, t, c]) => seg.append(h('button', { class: c + (mode === k ? ' on' : ''), 'aria-pressed': mode === k ? 'true' : 'false', on: { click: () => { mode = k; paint(); } } }, t))); };
+  paint();
+  const login = h('input', { class: 'inp mono', value: 'ali_8b', maxlength: 16, 'aria-label': 'Login' });
+  const pass = h('input', { class: 'inp mono', value: 'sirli123', maxlength: 16, 'aria-label': 'Parol' });
+  const screen = h('div', { class: 'caught' }), fb = feedback();
+  const sendB = h('button', { class: 'btn', on: { click: async () => {
+    sendB.disabled = true; screen.innerHTML = ''; fly(CH[6].cam);
+    const m = mode, raw = `login=${login.value}&parol=${pass.value}`, kind = m === 'http' ? 'plain' : 'lock';
+    fb.say(m === 'http' ? "Paket ochiq konvertda ketyapti..." : 'Paket qulflangan qutida ketyapti...');
+    if (await sendPacket('home', 'isp', { kind, speed: 26, scale: 1.3 }) !== 'ok' || !alive(run)) return;
+    screen.append(h('div', { class: m === 'http' ? '' : 'enc' }, m === 'http' ? raw : scramble(raw)));
+    if (m === 'http') { fb.say('Ushlovchi login va parolni <b>ochiq matnda</b> o\'qidi! HTTP ma\'lumotni shifrlamaydi.', 'bad'); list.tick('a'); }
+    else { fb.say('Ushlovchi faqat tushunarsiz belgilarni ko\'rdi. Faqat brauzer va server buni ocha oladi.', 'good'); list.tick('b'); }
+    await sendPacket('isp', 'gov', { kind, speed: 60, scale: 1.3 });
+    if (alive(run)) sendB.disabled = false;
+  } } }, 'Kirish');
+
+  const MSGS = ['login=ali_8b', 'parol=sirli123', 'xabar=Ertaga uchrashamiz', 'sinf=8-B', 'telefon=+998 90 000 00 00'];
+  const catchBox = h('div', { class: 'caught' }), f3 = feedback();
+  const catchBtn = h('button', { class: 'btn alt', on: { click: toggleStream } }, 'Ushlovchi rolini boshlash');
+  async function toggleStream() {
+    stream = !stream; catchBtn.textContent = stream ? "To'xtatish" : 'Ushlovchi rolini boshlash';
+    if (!stream) { S.onPacket = null; return; }
+    fly({ t: [-24, 3, 20], yaw: .3, pitch: .8, dist: 96 });
+    f3.say('Paketlar kabel bo\'ylab ketyapti. Sichqoncha bilan paketni bosib tuting! Yuqorida rejimni almashtirishingiz mumkin.');
+    S.onPacket = p => {
+      const text = p.payload; endPacket(p, 'caught');
+      const open = p.kind === 'plain';
+      catchBox.prepend(h('div', { class: open ? '' : 'enc' }, open ? text : scramble(text)));
+      while (catchBox.children.length > 4) catchBox.lastChild.remove();
+      if (open) caughtH++; else caughtS++;
+      f3.say(open ? 'Ochiq paket: hamma narsa o\'qildi!' : 'Qulflangan paket: ichidagini o\'qib bo\'lmaydi.', open ? 'bad' : 'good');
+      if (caughtH && caughtS) list.tick('c');
+    };
+    while (stream && alive(run)) {
+      if (packets.length < 4) sendPacket('home', 'gov', { kind: mode === 'http' ? 'plain' : 'lock', speed: 17, payload: pick(MSGS), scale: 1.25 });
+      await wait(1300);
+    }
+  }
+
+  const CASES = [
+    { url: 'http://maktab-kundalik.example', lock: false, text: 'Kundalikka kirish uchun parolingizni kiriting.', good: false, why: "Qulf yo'q: bu HTTP. Parol ochiq matnda boradi." },
+    { url: 'https://kun-uz-sovga.example', lock: true, text: "Tabriklaymiz! Sovg'a olish uchun parolingizni kiriting.", good: false, why: "Qulf bor, lekin domen notanish. Qulf faqat ulanish shifrlanganini bildiradi. Firibgar sayt ham HTTPS bo'lishi mumkin." },
+    { url: 'https://my.gov.uz', lock: true, text: 'Davlat xizmatlari portaliga kirish.', good: true, why: 'Domen to\'g\'ri va ulanish shifrlangan.' },
+  ];
+  let ci = 0;
+  const caseBox = h('div', { class: 'br' }), f4 = feedback();
+  function showCase() {
+    caseBox.innerHTML = '';
+    if (ci >= CASES.length) { caseBox.append(h('div', { class: 'view blank', style: 'height:70px' }, 'Barcha saytlar tekshirildi')); list.tick('d'); return; }
+    const c = CASES[ci];
+    caseBox.append(h('div', { class: 'bar' }, h('span', null, c.lock ? '🔒' : '⚠️'), h('span', { class: 'ad' }, c.url)),
+      h('div', { style: 'padding:10px 12px;display:flex;flex-direction:column;gap:8px' }, h('span', null, c.text), h('div', { class: 'row' },
+        h('button', { class: 'btn alt', on: { click: () => decide(true) } }, 'Parol kiritaman'), h('button', { class: 'btn alt', on: { click: () => decide(false) } }, 'Kiritmayman'))));
+  }
+  function decide(yes) {
+    const c = CASES[ci];
+    if (yes === c.good) { f4.say(`To'g'ri. ${c.why}`, 'good'); ci++; showCase(); }
+    else f4.say(`O'ylab ko'ring: ${c.why}`, 'bad');
+  }
+  showCase();
+  panel.append(...head(6, 'HTTP va HTTPS'),
+    para("<b>HTTP</b> — brauzer va server gaplashadigan qoidalar. Unda ma'lumot <b>ochiq matnda</b> yuboriladi: yo'ldagi har kim o'qiy oladi."),
+    para("<b>HTTPS</b> — ulanish shifrlanadi: paketni ushlab olgan odam faqat tushunarsiz belgilarni ko'radi."),
+    h('h3', null, '1-amaliyot: login yuboring'), seg,
+    note("Bu faqat simulyatsiya. Bu yerga haqiqiy parolingizni yozmang."),
+    h('div', { class: 'row' }, login, pass), sendB,
+    h('div', null, h('b', null, 'Ushlovchi ekrani:')), screen, fb,
+    h('h3', null, '2-amaliyot: ushlovchi rolida'), catchBtn, f3, catchBox,
+    h('h3', null, '3-amaliyot: parol kiritasizmi?'), caseBox, f4, list);
+}
+
+/* 8-bob: yakuniy sinov */
+const QUIZ = [
+  ["Internet nima?", ["Bir-biriga ulangan kompyuterlarning butun dunyo tarmog'i", 'Osmondagi katta sun\'iy yo\'ldosh', 'Bitta juda katta kompyuter', 'Wi-Fi routerning boshqa nomi'], "Internet — o'zaro ulangan millionlab kompyuterlar tarmog'i."],
+  ["Katta fayl internetda qanday yuboriladi?", ["Kichik paketlarga bo'linib", 'Bir butun holda', 'Faqat Wi-Fi orqali', 'Faqat tunda'], "Ma'lumot paketlarga bo'linadi, qabul qiluvchi ularni tartib raqami bilan yig'adi."],
+  ["Qaysi biri to'g'ri IPv4 manzil?", ['192.168.1.1', '300.1.2.3', '10.20.30', 'kun.uz'], "IPv4 da 4 ta son bo'ladi va har biri 0 dan 255 gacha."],
+  ["Qaysi biri domen?", ['github.com', '8.8.8.8', '192.168.1.1', 'Chrome'], "Domen — odam eslab qoladigan sayt nomi. Chrome esa brauzer."],
+  ["Hosting nima?", ["Sayt fayllari saqlanadigan va 24/7 ishlaydigan server xizmati", 'Saytning nomi', 'Kompyuterning raqamli manzili', 'Sahifani ko\'rsatadigan dastur'], "Hosting — saytning «binosi»: fayllar shu serverda turadi."],
+  ["DNS nima qiladi?", ['Domen nomini IP-manzilga aylantiradi', 'Sahifani ekranda chizadi', 'Sayt fayllarini saqlaydi', 'Paroldan himoya qiladi'], "DNS — internetning telefon kitobi: nom → raqam."],
+  ["Brauzerga domen yozilgandan keyin birinchi nima bo'ladi?", ["Brauzer DNS'dan IP-manzilni so'raydi", 'Server fayllarni yuboradi', 'Brauzer sahifani chizadi', 'Sayt yopiladi'], "Avval IP-manzil kerak, shundan keyingina serverga ulanish mumkin."],
+  ["Sahifani serverdan so'rab, ekranda ko'rsatadigan dastur qaysi?", ['Brauzer', 'DNS', 'Hosting', 'Domen'], "Chrome, Edge, Firefox va Safari — brauzerlar."],
+  ["HTTP orqali yuborilgan parolni yo'lda ushlab olsa nima bo'ladi?", ["Uni o'qish mumkin, chunki u ochiq matnda", "Uni o'qib bo'lmaydi", "Parol o'z-o'zidan o'chadi", 'Sayt ogohlantirish xati yuboradi'], "HTTP shifrlamaydi. Shuning uchun parolni faqat HTTPS saytlarga kiriting."],
+  ["Brauzerdagi qulf belgisi nimani bildiradi?", ['Brauzer va server orasidagi ulanish shifrlangan', 'Sayt mutlaqo ishonchli', 'Sayt davlat tomonidan tekshirilgan', 'Sayt tez ochiladi'], "Qulf saytning halolligini kafolatlamaydi. Domen nomini doim tekshiring."],
+];
+function ch8(run) {
+  const body = h('div', { style: 'display:flex;flex-direction:column;gap:12px' });
+  S.need[7] = 1;
+  let i = 0, score = 0, order = shuffle(QUIZ);
+  function ask() {
+    body.innerHTML = '';
+    if (i >= order.length) return finish();
+    const [q, opts, why] = order[i], right = opts[0], fb = feedback(), seq = h('div', { class: 'seq' });
+    let answered = false;
+    const next = h('button', { class: 'btn', style: 'display:none', on: { click: () => { i++; ask(); } } }, i === order.length - 1 ? 'Natijani ko\'rish' : 'Keyingi savol →');
+    shuffle(opts).forEach((o, n) => {
+      const b = h('button', { on: { click: () => {
+        if (answered) return; answered = true;
+        const ok = o === right; if (ok) score++;
+        b.className = ok ? 'ok' : 'no';
+        if (!ok) [...seq.children].find(x => x.dataset.r === '1').className = 'ok';
+        fb.say(`${ok ? "To'g'ri!" : "Noto'g'ri."} ${why}`, ok ? 'good' : 'bad');
+        next.style.display = '';
+        next.focus();
+      } } }, h('i', null, 'ABCD'[n]), o);
+      if (o === right) b.dataset.r = '1';
+      seq.append(b);
+    });
+    body.append(h('div', { class: 'row', style: 'justify-content:space-between' }, h('b', null, `${i + 1}-savol / ${order.length}`), h('span', null, `Ball: ${score}`)),
+      h('div', { class: 'bar10' }, h('i', { style: `width:${i / order.length * 100}%` })), h('div', { class: 'q' }, q), seq, fb, next);
+  }
+  function finish() {
+    sendResult(score, order.length);
+    S.done.add('7:a'); renderSteps();
+    const msg = score === 10 ? "A'lo! Siz internet yo'lini to'liq tushundingiz." : score >= 7 ? "Yaxshi natija! Xato qilgan mavzularingizni qayta ko'rib chiqing." : "Boblarga qaytib, simulyatsiyalarni yana bajaring va qayta urinib ko'ring.";
+    body.append(h('div', { class: 'score' }, `${score} / ${order.length}`), para(msg),
+      h('button', { class: 'btn', on: { click: () => { i = 0; score = 0; order = shuffle(QUIZ); ask(); } } }, 'Qayta topshirish'));
+    (async () => { for (let k = 0; k < 8 && alive(run); k++) { sendPacket(pick(['kun', 'git', 'gov', 'dc']), 'home', { kind: pick(['data', 'reply', 'file', 'dns']), speed: 60 }); await wait(300); } })();
+  }
+  S.labels = () => [nameL('home'), nameL('dns'), nameL('dc'), nameL('kun')];
+  panel.append(...head(7, 'Yakuniy sinov'), para('10 ta savol. Har bir javobdan keyin izoh chiqadi.'), body);
+  ask();
+}
+
+const CH = [
+  { id: 1, t: 'Internet nima?', view: 'globe', enter: ch1, next: 'Toshkentga tushamiz ↓' },
+  { id: 2, t: 'Paketlar', cam: OVER, enter: ch2 },
+  { id: 3, t: 'IP va domen', cam: { t: [6, 3, 12], yaw: .15, pitch: .74, dist: 138 }, enter: ch3 },
+  { id: 4, t: 'Hosting', cam: { t: [45, 5, -24], yaw: -.68, pitch: .68, dist: 66 }, enter: ch4 },
+  { id: 5, t: 'DNS', cam: { t: [-26, 3, -8], yaw: -.05, pitch: .7, dist: 108 }, enter: ch5 },
+  { id: 6, t: 'Sahifa ochilishi', cam: OVER, enter: ch6 },
+  { id: 7, t: 'HTTP / HTTPS', cam: { t: [-30, 3, 22], yaw: .42, pitch: .74, dist: 92 }, enter: ch7 },
+  { id: 8, t: 'Yakuniy sinov', cam: OVER, enter: ch8 },
+];
+
+/* ---------- Ishga tushirish ---------- */
+document.body.classList.add('pre');
+$('#nojs').remove(); $('#start').hidden = false;
+buildWorld(); resize(); fly(OVER, true);
+$('#hint').textContent = 'Globusni sichqoncha bilan aylantiring';
+requestAnimationFrame(t => { last = t; requestAnimationFrame(frame); });
+$('#start').addEventListener('click', () => { $('#intro').classList.add('gone'); document.body.classList.remove('pre'); go(0); });
+addEventListener('keydown', e => {
+  if (document.body.classList.contains('pre') || /INPUT|TEXTAREA/.test(document.activeElement.tagName)) return;
+  if (e.key === 'ArrowRight' && S.ch < CH.length - 1) go(S.ch + 1);
+  if (e.key === 'ArrowLeft' && S.ch > 0) go(S.ch - 1);
+});
 </script>
 </body>
 </html>
