@@ -1,0 +1,774 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kiberxavfsizlik laboratoriyasi</title>
+<style>
+  :root {
+    --ink: #1c2442; --muted: #5a6484; --line: #dde3ee; --soft: #f2f5fb;
+    --brand: #4f46e5; --brand-soft: #e8e7fd; --good: #0f8a6d; --good-soft: #dbf5ec;
+    --bad: #d13c3c; --bad-soft: #fde5e3; --amber-soft: #fff1d6; --top: 54px;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; height: 100%; background: #e9edf5; color: var(--ink);
+    font-family: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif; font-size: 16px; line-height: 1.42; }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  :focus-visible { outline: 3px solid #f5a524; outline-offset: 1px; }
+  #top { height: var(--top); display: flex; align-items: center; gap: 14px; padding: 0 12px; background: #fff; border-bottom: 1px solid var(--line); }
+  #top strong { font-size: 17px; white-space: nowrap; }
+  #steps { display: flex; gap: 3px; margin-left: auto; overflow-x: auto; scrollbar-width: none; }
+  #steps button { display: flex; align-items: center; gap: 6px; border: 0; background: none; border-radius: 10px; padding: 5px 8px; font-size: 14px; font-weight: 600; color: var(--muted); white-space: nowrap; }
+  #steps i { font-style: normal; width: 24px; height: 24px; border-radius: 50%; background: var(--soft); display: grid; place-items: center; font-size: 13px; font-weight: 700; }
+  #steps button:hover { background: var(--soft); }
+  #steps button.on { color: var(--brand); background: var(--brand-soft); } #steps button.on i { background: var(--brand); color: #fff; }
+  #steps button.ok i { background: var(--good); color: #fff; }
+  #app { height: calc(100% - var(--top)); display: grid; grid-template-columns: minmax(0, 1.85fr) minmax(320px, 1fr); gap: 10px; padding: 10px; }
+  #left { min-height: 0; min-width: 0; display: flex; flex-direction: column; gap: 7px; }
+  #stage { flex: 1; min-height: 0; border-radius: 14px; overflow: hidden; background: #131a33; }
+  #c { display: block; width: 100%; height: 100%; touch-action: manipulation; }
+  #c.point { cursor: pointer; }
+  #controls { flex: none; display: flex; gap: 5px; align-items: center; font-size: 14.5px; min-height: 36px; overflow-x: auto; scrollbar-width: thin; }
+  #controls button { flex: none; white-space: nowrap; }
+  #controls .chip { border: 0; border-radius: 8px; padding: 4px 9px; background: #fff; box-shadow: inset 0 0 0 1.5px var(--line); font-family: Consolas, Menlo, monospace; font-size: 14px; font-weight: 700; }
+  #controls .chip:hover { background: var(--brand-soft); }
+  #controls .end { flex: none; display: flex; gap: 5px; }
+  #panel { min-height: 0; overflow-y: auto; background: #fff; border-radius: 14px; border: 1px solid var(--line); padding: 14px 16px; display: flex; flex-direction: column; gap: 9px; }
+  #panel > * { flex: none; }
+  #panel h2 { margin: 0; font-size: 23px; line-height: 1.18; }
+  #panel h3 { margin: 4px 0 -3px; font-size: 15.5px; }
+  #panel p { margin: 0; }
+  #panel code { font-family: Consolas, Menlo, monospace; background: var(--soft); border-radius: 5px; padding: 0 4px; font-size: .94em; }
+  .eyebrow { font-size: 13.5px; font-weight: 700; color: var(--brand); margin-bottom: -7px; }
+  .note { padding: 8px 12px; border-radius: 11px; background: var(--amber-soft); color: #6d4300; }
+  .fb { padding: 8px 12px; border-radius: 11px; background: var(--soft); } .fb:empty { display: none; }
+  .fb.good { background: var(--good-soft); color: #075d49; } .fb.bad { background: var(--bad-soft); color: #93201f; }
+  .row { display: flex; gap: 7px; flex-wrap: wrap; align-items: center; }
+  .btn { border: 0; border-radius: 10px; padding: 7px 12px; font-weight: 650; background: var(--brand); color: #fff; }
+  .btn:hover { background: #4038c9; }
+  .btn.alt { background: #fff; color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--line); } .btn.alt:hover { background: var(--soft); }
+  .btn.on { background: var(--ink); color: #fff; box-shadow: none; }
+  .btn[disabled] { opacity: .45; cursor: not-allowed; }
+  .tasks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 5px; }
+  .tasks li { display: flex; gap: 8px; color: var(--muted); }
+  .tasks li::before { content: ""; flex: none; width: 19px; height: 19px; margin-top: 2px; border-radius: 6px; border: 2px solid #c4ccdd; }
+  .tasks li.ok { color: var(--ink); }
+  .tasks li.ok::before { content: "✓"; background: var(--good); border-color: var(--good); color: #fff; font-size: 13px; font-weight: 800; display: grid; place-items: center; line-height: 1; }
+  #nav { margin-top: auto; display: flex; justify-content: space-between; gap: 8px; padding-top: 3px; }
+  .card { border: 1px solid var(--line); border-radius: 12px; padding: 9px 12px; background: var(--soft); display: flex; flex-direction: column; gap: 7px; }
+  .big { font-size: 19px; font-weight: 700; text-align: center; line-height: 1.25; }
+  .fbox select { border: 1px solid var(--line); border-radius: 8px; padding: 4px 6px; background: #fff; flex: 1; min-width: 120px; }
+  .fbox textarea { width: 100%; height: 84px; resize: vertical; border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; font-family: Consolas, Menlo, monospace; font-size: 14.5px; background: #fff; }
+  .snap { white-space: pre-wrap; font-family: Consolas, Menlo, monospace; font-size: 14px; background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; max-height: 150px; overflow-y: auto; }
+  .seq { display: flex; flex-direction: column; gap: 5px; }
+  .seq button { display: flex; gap: 9px; align-items: center; text-align: left; border: 2px solid var(--line); background: #fff; border-radius: 10px; padding: 6px 10px; }
+  .seq button:hover { border-color: var(--brand); }
+  .seq button i { flex: none; font-style: normal; width: 24px; height: 24px; border-radius: 50%; background: var(--soft); display: grid; place-items: center; font-size: 13.5px; font-weight: 800; color: var(--muted); }
+  .seq button.ok { border-color: var(--good); background: var(--good-soft); } .seq button.ok i { background: var(--good); color: #fff; }
+  .seq button.no { border-color: var(--bad); background: var(--bad-soft); }
+  .q { font-size: 18.5px; font-weight: 700; line-height: 1.26; }
+  .score { font-size: 50px; font-weight: 800; text-align: center; line-height: 1; color: var(--brand); }
+  #nojs { padding: 20px; font-size: 18px; }
+  @media (max-width: 1240px) { #steps button span { display: none; } #steps button.on span { display: inline; } }
+  @media (max-width: 900px) {
+    html, body { height: auto; }
+    #top strong { display: none; } #steps { margin-left: 0; }
+    #app { display: flex; flex-direction: column; height: auto; }
+    #stage { height: 56vw; min-height: 270px; flex: none; }
+  }
+  #app { grid-template-columns: minmax(0, 2.5fr) minmax(330px, 1fr); }
+  #controls { flex-wrap: wrap; overflow: visible; }
+  #controls .chip[disabled] { opacity: .45; cursor: not-allowed; }
+  #panel .chip { border: 0; border-radius: 8px; padding: 4px 9px; background: #fff; box-shadow: inset 0 0 0 1.5px var(--line); font-family: Consolas, Menlo, monospace; font-size: 14px; font-weight: 700; }
+  #panel input { width: 100%; border: 2px solid var(--line); border-radius: 10px; padding: 8px 10px; font-family: Consolas, Menlo, monospace; font-size: 17px; background: #fff; }
+  .body { display: flex; flex-direction: column; gap: 8px; } .body:empty { display: none; }
+  .seq button[disabled] { cursor: default; }
+  #start { position: fixed; inset: 0; display: grid; place-items: center; padding: 16px; background: #131a33; color: #fff; }
+  #start > div { max-width: 620px; display: flex; flex-direction: column; gap: 14px; text-align: center; align-items: center; }
+  #start h1 { margin: 0; font-size: 34px; line-height: 1.15; } #start p { margin: 0; font-size: 18px; color: #dfe6ff; }
+  #start .warn { background: #fff1d6; color: #6d4300; border-radius: 12px; padding: 10px 14px; font-size: 16px; }
+  #go { font-size: 20px; padding: 11px 26px; }
+</style>
+</head>
+<body>
+<div id="nojs">Bu oynada skriptlar ishlamayapti, shuning uchun sahifa ochilmadi. Faylni Explorer'dan ikki marta bosib, Chrome yoki Edge brauzerida oching.</div>
+<div id="start" hidden><div>
+  <div style="font-size:64px;line-height:1">🛡️</div>
+  <h1>Kiberxavfsizlik laboratoriyasi</h1>
+  <p>Xavflarni xavfsiz muhitda kuzating, hujumlarni sinab ko'ring va to'g'ri qaror qabul qiling. 6 va 19-darslar uchun.</p>
+  <p class="warn">Bu taqlid: haqiqiy zararli dastur yo'q, nom va manzillar to'qilgan. Haqiqiy parolingizni hech qayerga yozmang.</p>
+  <button id="go" class="btn">Boshlash</button>
+</div></div>
+<header id="top" hidden><strong>Kiberxavfsizlik laboratoriyasi</strong><nav id="steps" aria-label="Boblar"></nav></header>
+<main id="app" hidden>
+  <section id="left">
+    <div id="stage"><canvas id="c" role="img" aria-label="Kiberxavfsizlik simulyatsiyasi"></canvas></div>
+    <div id="controls"></div>
+  </section>
+  <aside id="panel"></aside>
+</main>
+<script>
+'use strict';
+/* ---------- Asos ---------- */
+const $ = s => document.querySelector(s);
+function h(t, a, ...k) {
+  const e = document.createElement(t);
+  if (a) for (const n in a) {
+    if (n === 'on') e.onclick = a[n];
+    else if (n === 'cls') e.className = a[n];
+    else if (a[n] === true) e.setAttribute(n, '');
+    else if (a[n] !== false && a[n] != null) e.setAttribute(n, a[n]);
+  }
+  for (const c of k.flat()) if (c != null && c !== false) e.append(c.nodeType ? c : String(c));
+  return e;
+}
+const B = (l, f, o) => h('button', { cls: 'btn' + (o && o.alt ? ' alt' : ''), on: f, disabled: !!(o && o.off) }, l);
+const CHIP = (l, f, off) => h('button', { cls: 'chip', on: f, disabled: !!off }, l);
+function rich(s) { return s.split('`').map((p, i) => i % 2 ? h('code', null, p) : p); }
+function shuffle(a) { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+const CH = [];
+let cur = 0;
+function say(t, k) { CH[cur].fb = { t, k: k || '' }; render(); }
+function mark(i) { CH[cur].t[i] = true; }
+function resetCh(c) { c.s = c.init(); c.t = c.tasks.map(() => false); c.fb = null; }
+function goCh(i) { cur = i; if (!CH[i].s) resetCh(CH[i]); render(); $('#panel').scrollTop = 0; }
+function isDone(c) { return c.final ? !!(c.s && c.s.over) : !!(c.t && c.t.length && c.t.every(Boolean)); }
+function render() {
+  const c = CH[cur], st = $('#steps');
+  st.replaceChildren(...CH.map((x, i) => h('button', { cls: (i === cur ? 'on ' : '') + (isDone(x) ? 'ok' : ''), on: () => goCh(i) }, h('i', null, isDone(x) ? '✓' : i + 1), h('span', null, x.short))));
+  const p = $('#panel'), top = p.scrollTop, kids = [h('div', { cls: 'eyebrow' }, c.lesson), h('h2', null, c.title)];
+  if (c.intro) kids.push(h('p', null, rich(c.intro)));
+  if (c.tasks.length) kids.push(h('ul', { cls: 'tasks' }, c.tasks.map((t, i) => h('li', { cls: c.t[i] ? 'ok' : '' }, rich(t)))));
+  const box = h('div', { cls: 'body' }); if (c.panel) c.panel(box, c.s); kids.push(box);
+  if (c.fb) kids.push(h('div', { cls: 'fb ' + c.fb.k }, rich(c.fb.t)));
+  if (!c.final && isDone(c)) kids.push(h('div', { cls: 'fb good' }, 'Bob bajarildi. Keyingi bobga o\'ting.'));
+  kids.push(h('div', { id: 'nav' }, B('← Oldingi', () => goCh(cur - 1), { alt: 1, off: cur === 0 }), cur < CH.length - 1 ? B('Keyingi →', () => goCh(cur + 1)) : null));
+  p.replaceChildren(...kids); p.scrollTop = top;
+  const ct = $('#controls'), row = []; if (c.controls) c.controls(row, c.s);
+  ct.replaceChildren(...row, h('div', { cls: 'end' }, h('button', { cls: 'btn alt', on: () => { resetCh(c); render(); } }, 'Bobni boshidan')));
+}
+
+/* ---------- Chizish ---------- */
+const cv = $('#c'), g2 = cv.getContext('2d');
+let W = 0, H = 0, DPR = Math.min(window.devicePixelRatio || 1, 2), SC = 1, OX = 0, OY = 0;
+const VW = 1000, VH = 540, HITS = [];
+function resize() {
+  const r = $('#stage').getBoundingClientRect();
+  W = r.width; H = r.height; cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
+  SC = Math.min(W / VW, H / VH) || 1; OX = (W - VW * SC) / 2; OY = (H - VH * SC) / 2;
+}
+addEventListener('resize', resize);
+const FONT = '"Segoe UI",system-ui,sans-serif', MONO = 'Consolas,Menlo,monospace';
+const COL = { card: '#1d2547', card2: '#2a3462', txt: '#fff', mut: '#a9b6e4', red: '#ff7b70', grn: '#6fe3a8', yel: '#ffd84d', blu: '#7fb2ff' };
+function rr(x, y, w, hh, r) { g2.beginPath(); g2.moveTo(x + r, y); g2.arcTo(x + w, y, x + w, y + hh, r); g2.arcTo(x + w, y + hh, x, y + hh, r); g2.arcTo(x, y + hh, x, y, r); g2.arcTo(x, y, x + w, y, r); g2.closePath(); }
+function box(x, y, w, hh, f, st, r) { rr(x, y, w, hh, r == null ? 12 : r); g2.fillStyle = f; g2.fill(); if (st) { g2.strokeStyle = st; g2.lineWidth = 2; g2.stroke(); } }
+function tx(t, x, y, px, col, al, wt, fam) { g2.font = `${wt || 600} ${px}px ${fam || FONT}`; g2.fillStyle = col || '#fff'; g2.textAlign = al || 'left'; g2.textBaseline = 'middle'; g2.fillText(t, x, y); }
+function fit(t, w, px, wt, fam) {
+  g2.font = `${wt || 600} ${px}px ${fam || FONT}`;
+  if (g2.measureText(t).width <= w) return t;
+  while (t.length > 1 && g2.measureText(t + '…').width > w) t = t.slice(0, -1);
+  return t + '…';
+}
+function wrap(t, x, y, w, px, col, lh, wt, al) {
+  g2.font = `${wt || 500} ${px}px ${FONT}`; let line = '', yy = y;
+  for (const word of String(t).split(' ')) {
+    const n = line ? line + ' ' + word : word;
+    if (g2.measureText(n).width > w && line) { tx(line, x, yy, px, col, al, wt || 500); yy += lh; line = word; g2.font = `${wt || 500} ${px}px ${FONT}`; }
+    else line = n;
+  }
+  if (line) tx(line, x, yy, px, col, al, wt || 500);
+  return yy + lh;
+}
+function hot(x, y, w, hh, f) { HITS.push({ x, y, w, h: hh, f }); }
+function lerp(a, b, t) { return a + (b - a) * t; }
+function dot(x, y, r, c) { g2.beginPath(); g2.arc(x, y, r, 0, 7); g2.fillStyle = c; g2.fill(); }
+function line(a, b, c, d, col, w, dash) { g2.beginPath(); g2.moveTo(a, b); g2.lineTo(c, d); g2.strokeStyle = col; g2.lineWidth = w || 2; g2.setLineDash(dash || []); g2.stroke(); g2.setLineDash([]); }
+function bar(x, y, w, hh, v, col) { box(x, y, w, hh, '#10162e', null, hh / 2); if (v > 0) box(x, y, Math.max(hh, w * Math.min(1, v)), hh, col, null, hh / 2); }
+function vpos(e) { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left - OX) / SC, (e.clientY - r.top - OY) / SC]; }
+function hitAt(p) { for (let i = HITS.length - 1; i >= 0; i--) { const q = HITS[i]; if (p[0] >= q.x && p[0] <= q.x + q.w && p[1] >= q.y && p[1] <= q.y + q.h) return q; } return null; }
+cv.addEventListener('click', e => { const q = hitAt(vpos(e)); if (q) q.f(); });
+cv.addEventListener('mousemove', e => cv.classList.toggle('point', !!hitAt(vpos(e))));
+let last = 0;
+function frame(t) {
+  { const q = $('#stage').getBoundingClientRect(); if (Math.abs(q.width - W) > 1 || Math.abs(q.height - H) > 1) resize(); }
+  const dt = Math.min(.05, (t - last) / 1000 || 0); last = t;
+  const c = CH[cur];
+  if (c.s && c.tick) c.tick(c.s, dt);
+  if (W > 0 && H > 0 && c.s) {
+    g2.setTransform(DPR, 0, 0, DPR, 0, 0); g2.fillStyle = '#131a33'; g2.fillRect(0, 0, W, H);
+    g2.setTransform(DPR * SC, 0, 0, DPR * SC, DPR * OX, DPR * OY);
+    HITS.length = 0; c.draw(c.s);
+  }
+  requestAnimationFrame(frame);
+}
+
+/* ---------- 1. Xavf turlari ---------- */
+const TYPES = [['malware', 'Zararli dastur'], ['phish', 'Phishing'], ['weak', 'Zaif parol'], ['leak', 'Maxfiylik buzilishi'], ['social', 'Ijtimoiy muhandislik']];
+const INC = [
+  { t: "Noma'lum dastur o'rnatilgandan keyin kompyuter sekinlashdi, fayllar o'zgarib ketdi.", a: 'malware', as: 0, why: "Bu yerda xavfni qurilmaga o'rnatilgan dastur keltirib chiqargan. Bunday dastur zararli dastur deyiladi." },
+  { t: "Xatdagi havola tanish saytga o'xshash sahifani ochdi va parolni so'radi.", a: 'phish', as: 1, why: "Soxta xat va soxta sahifa orqali parolni aldab olish phishing deyiladi." },
+  { t: "O'quvchi hamma joyda 123456 parolidan foydalangan. Begona kishi uni topib, akkauntga kirdi.", a: 'weak', as: 1, why: "Hech kim aldanmagan, parolning o'zi juda oson topilgan. Bu zaif parol xavfi." },
+  { t: "Telefon raqami, uy manzili va maktabi ochiq profilda hammaga ko'rinib turibdi.", a: 'leak', as: 2, why: "Hech narsa buzilmagan, lekin shaxsiy ma'lumot begonalarga ochiq. Bu maxfiylik muammosi." },
+  { t: "Kimdir \"o'qituvchingizman\" deb yozdi va telefonga kelgan SMS kodni so'radi.", a: 'social', as: 1, why: "Hujumchi dasturni emas, odamni aldayapti: o'zini boshqa odam qilib ko'rsatadi. Bu ijtimoiy muhandislik." },
+];
+const ASSETS = [['💻', 'Qurilma', 150, 330], ['🔑', 'Akkaunt', 390, 330], ['🪪', "Shaxsiy ma'lumot", 630, 330], ['☁️', 'Bulut', 870, 330]];
+CH.push({
+  short: 'Xavf turlari', lesson: '19-dars · 1-bob', title: 'Nimani himoya qilamiz?',
+  intro: "Kiberxavfsizlik qurilma, akkaunt, shaxsiy ma'lumot va bulutdagi fayllarni himoya qilishdir. Hodisani o'qing va xavf turini tanlang.",
+  tasks: ['5 ta hodisaning xavf turini aniqlang'],
+  init: () => ({ i: 0, fly: -1, hit: [] }),
+  tick(s, dt) { if (s.fly >= 0) { s.fly += dt * 1.1; if (s.fly >= 1) s.fly = -1; } },
+  draw(s) {
+    const inc = INC[Math.min(s.i, INC.length - 1)], end = s.i >= INC.length;
+    box(40, 24, 920, 130, COL.card, 'rgba(255,255,255,.12)');
+    if (end) { tx("Barcha hodisalar turkumlandi", 500, 70, 26, COL.grn, 'center', 700); tx("Bitta himoya hammasiga yetmaydi: har xavfga o'z chorasi kerak.", 500, 110, 18, COL.mut, 'center', 500); }
+    else { tx(`Hodisa ${s.i + 1} / ${INC.length}`, 64, 50, 15, COL.yel, 'left', 700); wrap(inc.t, 64, 84, 870, 22, '#fff', 30, 600); }
+    tx('🕵️', 500, 205, 40, '#fff', 'center');
+    ASSETS.forEach((a, i) => {
+      const n = s.hit.filter(x => x === i).length;
+      box(a[2] - 100, a[3] - 60, 200, 150, n ? '#3a2340' : COL.card, n ? COL.red : 'rgba(255,255,255,.12)');
+      tx(a[0], a[2], a[3] - 12, 44, '#fff', 'center'); tx(a[1], a[2], a[3] + 40, 18, '#fff', 'center', 700);
+      tx(n ? `${n} ta hodisa` : 'Hodisa yo\'q', a[2], a[3] + 66, 15, n ? COL.red : COL.mut, 'center');
+    });
+    if (s.fly >= 0) { const a = ASSETS[s.to]; dot(lerp(500, a[2], s.fly), lerp(230, a[3] - 60, s.fly), 10, COL.red); }
+    tx("Hodisa nimaga zarar bergani kartalarda belgilanadi", 500, 500, 16, COL.mut, 'center', 500);
+  },
+  panel(el, s) {
+    if (s.i >= INC.length) return;
+    el.append(h('div', { cls: 'seq' }, TYPES.map(([k, l]) => h('button', { on: () => {
+      const inc = INC[s.i];
+      if (k === inc.a) { s.to = inc.as; s.hit.push(inc.as); s.fly = 0; s.i++; if (s.i >= INC.length) mark(0); say("To'g'ri. " + inc.why, 'good'); }
+      else say(`Bu "${l}" emas. ` + inc.why, 'bad');
+    } }, l))));
+  },
+});
+
+/* ---------- 2. Zararli dasturlar ---------- */
+const MW = {
+  virus: { n: 'Virus', got: "Virus boshqa dasturlarga o'z kodini yozadi va ular ochilganda ko'payadi. Himoya: noma'lum dasturni ochmaslik, antivirus.", no: "Jurnalga qarang: kod bir dasturdan boshqasiga o'tib ko'paydi. Bu virusning belgisi." },
+  trojan: { n: 'Troyan', got: "Troyan foydali dastur niqobida keladi va yashirin kirish yo'lini ochadi. Himoya: dasturni faqat ishonchli manbadan olish.", no: "Ekranda oddiy o'yin ochildi, orqada esa begona ulanish paydo bo'ldi. Niqob troyanning belgisi." },
+  spyware: { n: 'Spyware', got: "Spyware fayllarni buzmaydi, jimgina kuzatib, ma'lumotni tashqariga yuboradi. Himoya: antivirus, shubhali dasturlarni o'chirish.", no: "Fayllar butun qoldi, lekin bosilgan tugmalar tashqariga ketdi. Yashirin kuzatish spyware belgisi." },
+  ransom: { n: 'Ransomware', got: "Ransomware fayllarni shifrlab, pul talab qiladi. To'lov fayl qaytishiga kafolat bermaydi, eng yaxshi himoya zaxira nusxa.", no: "Fayllar birin-ketin qulflandi va to'lov talab qilindi. Bu ransomware belgisi." },
+};
+const FILES2 = [['insho.docx', 0], ['rasm.png', 0], ['hisobot.xlsx', 0], ['musiqa.mp3', 0], ['kalkulyator.exe', 1], ['chizma.exe', 1], ["lug'at.exe", 1], ['taqvim.exe', 1]];
+function lab2(s) { s.files = FILES2.map(f => ({ n: f[0], exe: f[1], inf: false, lock: false })); s.log = []; s.keys = ''; s.pk = []; s.game = false; s.door = false; s.note = false; s.run = null; s.over = false; s.q = []; s.w = 0; s.host = null; }
+function lg(s, t) { s.log.push(t); if (s.log.length > 8) s.log.shift(); }
+function script(kind, s) {
+  const q = [], step = (d, f) => q.push({ d, f });
+  if (kind === 'virus') {
+    const ex = s.files.filter(f => f.exe);
+    step(.7, () => { ex[0].inf = true; s.host = 0; lg(s, `${ex[0].n} fayliga begona kod yozildi`); });
+    for (let i = 1; i < ex.length; i++) step(1.5, () => { lg(s, `Foydalanuvchi ${ex[i - 1].n} ni ochdi`); ex[i].inf = true; lg(s, `Kod ${ex[i].n} fayliga ko'chdi`); });
+    step(1, () => lg(s, 'Oddiy hujjatlar tegilmadi, faqat dasturlar zararlandi'));
+  } else if (kind === 'trojan') {
+    step(.7, () => { s.game = true; lg(s, "Ekranda \"Bepul o'yin\" ochildi, hammasi joyida ko'rinadi"); });
+    step(1.6, () => lg(s, "Fayllar o'zgarmadi, kompyuter nusxa ko'paytirmadi"));
+    step(1.6, () => { s.door = true; lg(s, 'Orqa fonda yashirin kirish yo\'li ochildi'); });
+    step(1.4, () => { s.pk.push({ t: 0, back: true }); lg(s, "Tashqaridan begona kompyuter ulandi"); });
+  } else if (kind === 'spyware') {
+    const txt = 'login: sardor parol: ******';
+    step(.7, () => lg(s, "Ekranda hech narsa o'zgarmadi"));
+    for (let i = 0; i < txt.length; i += 3) step(.32, () => { s.keys = txt.slice(0, i + 3); if (i % 9 === 0) s.pk.push({ t: 0 }); });
+    step(.5, () => lg(s, 'Bosilgan tugmalar yashirin faylga yozildi'));
+    step(1.2, () => { s.pk.push({ t: 0 }); lg(s, "Yozuvlar noma'lum serverga yuborildi"); });
+    step(.9, () => lg(s, 'Birorta fayl buzilmadi'));
+  } else {
+    s.files.forEach((f, i) => step(i ? .55 : .8, () => { f.lock = true; if (i % 3 === 0) lg(s, `${f.n} shifrlandi, ochilmaydi`); }));
+    step(.8, () => { s.note = true; lg(s, "Ekranga to'lov talabi chiqdi"); });
+  }
+  return q;
+}
+CH.push({
+  short: 'Zararli dastur', lesson: '6-dars · 2-bob', title: 'Dastur nima qilayotganini kuzating',
+  intro: "Bu xavfsiz taqlid: bu yerda haqiqiy zararli kod yo'q. Namunani ishga tushiring, jurnalni kuzating va uning turini aniqlang.",
+  tasks: ['Virusni xulqidan aniqlang', 'Troyanni xulqidan aniqlang', 'Spyware\'ni xulqidan aniqlang', 'Ransomware\'ni xulqidan aniqlang'],
+  init() { const s = { perm: shuffle(['virus', 'trojan', 'spyware', 'ransom']), solved: {} }; lab2(s); return s; },
+  tick(s, dt) {
+    if (s.q.length) { s.w += dt; while (s.q.length && s.w >= s.q[0].d) { s.w -= s.q[0].d; s.q.shift().f(); } if (!s.q.length && s.run != null) { s.over = true; render(); } }
+    s.pk.forEach(p => p.t += dt * .8); s.pk = s.pk.filter(p => p.t < 1);
+  },
+  draw(s) {
+    box(12, 12, 620, 516, COL.card, 'rgba(255,255,255,.12)');
+    tx('Laboratoriya kompyuteri', 30, 36, 20, '#fff', 'left', 700);
+    s.files.forEach((f, i) => {
+      const x = 28 + (i % 4) * 149, y = 62 + Math.floor(i / 4) * 112, c = f.lock ? COL.red : f.inf ? COL.yel : COL.grn;
+      box(x, y, 139, 100, COL.card2, f.lock || f.inf ? c : null, 10);
+      tx(f.lock ? '🔒' : f.inf ? '🐛' : f.exe ? '⚙️' : '📄', x + 70, y + 34, 30, '#fff', 'center');
+      tx(fit(f.lock ? f.n.replace(/[aeiou]/g, '#') : f.n, 125, 14, 600, MONO), x + 70, y + 66, 14, '#fff', 'center', 600, MONO);
+      tx(f.lock ? 'shifrlangan' : f.inf ? 'zararlangan' : 'butun', x + 70, y + 85, 13, c, 'center');
+    });
+    box(28, 292, 588, 76, '#10162e', null, 10);
+    tx('Klaviatura', 42, 310, 14, COL.mut);
+    tx(s.keys || '—', 42, 342, 19, s.keys ? COL.yel : COL.mut, 'left', 700, MONO);
+    if (s.game) { box(120, 382, 400, 130, '#27406f', COL.blu); tx("🎮 Bepul o'yin", 320, 425, 24, '#fff', 'center', 700); tx('Ball: 120 · Daraja: 3', 320, 468, 16, COL.mut, 'center'); }
+    if (s.note) { box(60, 382, 510, 130, '#4a1e2b', COL.red); tx("Fayllaringiz qulflandi!", 315, 420, 24, COL.red, 'center', 700); tx("Ochish uchun to'lov qiling (bu faqat taqlid)", 315, 465, 16, '#fff', 'center', 500); }
+    if (!s.game && !s.note) tx(s.run == null ? 'Pastdan namuna tanlang' : 'Namuna ishlamoqda…', 322, 448, 20, COL.mut, 'center', 500);
+    box(644, 12, 344, 330, COL.card, 'rgba(255,255,255,.12)');
+    tx('Kuzatuv jurnali', 660, 36, 19, '#fff', 'left', 700);
+    let y = 66; s.log.forEach(l => { y = wrap('• ' + l, 660, y, 315, 14.5, '#dfe6ff', 19) + 3; });
+    box(644, 354, 344, 174, COL.card, 'rgba(255,255,255,.12)');
+    tx('Tarmoq', 660, 378, 19, '#fff', 'left', 700);
+    tx('💻', 690, 450, 38, '#fff', 'center'); tx('🌐', 930, 450, 38, '#fff', 'center');
+    tx('Kompyuter', 690, 492, 14, COL.mut, 'center'); tx("Noma'lum server", 925, 492, 14, COL.mut, 'center');
+    line(722, 450, 898, 450, s.door ? COL.red : 'rgba(255,255,255,.2)', 3, [7, 6]);
+    if (s.door) tx('yashirin ulanish', 810, 426, 14, COL.red, 'center', 700);
+    s.pk.forEach(p => dot(lerp(722, 898, p.back ? 1 - p.t : p.t), 450, 8, COL.yel));
+  },
+  controls(row, s) {
+    s.perm.forEach((k, i) => { const L = 'ABCD'[i], ok = s.solved[k];
+      row.push(CHIP((ok ? '✓ ' : '') + 'Namuna ' + L, () => { lab2(s); s.run = k; s.name = L; s.q = script(k, s); CH[cur].fb = null; render(); }, ok || (s.run != null && !s.over))); });
+  },
+  panel(el, s) {
+    if (s.run == null) { el.append(h('p', { cls: 'note' }, 'Pastdagi tugmadan namuna tanlang.')); return; }
+    el.append(h('h3', null, `Namuna ${s.name} qaysi tur?`));
+    el.append(h('div', { cls: 'row' }, Object.keys(MW).map(k => B(MW[k].n, () => {
+      if (k === s.run) { const i = Object.keys(MW).indexOf(k); s.solved[k] = true; mark(i); lab2(s); say(`To'g'ri, bu ${MW[k].n}. ` + MW[k].got, 'good'); }
+      else say(`Bu ${MW[k].n} emas. ` + MW[s.run].no, 'bad');
+    }, { alt: 1, off: !s.over }))));
+    if (!s.over) el.append(h('p', null, 'Namuna ishini tugatgach javob bering.'));
+  },
+});
+
+/* ---------- 3. Antivirus ---------- */
+const AVF = [['insho.docx', '1A2B'], ['rasm.png', '3C4D'], ['dars.pdf', '5E6F'], ['musiqa.mp3', '90BC'], ['kalkulyator.exe', '77AA'], ['oyin_bepul.exe', '7F3A'], ['yordamchi.exe', 'C109'], ['yangilash.exe', 'E55D']];
+const DB1 = ['7F3A', 'C109'], DB2 = ['7F3A', 'C109', 'E55D'];
+CH.push({
+  short: 'Antivirus', lesson: '6-dars · 3-bob', title: 'Antivirus qanday topadi?',
+  intro: "Antivirus fayl imzosini (izini) o'z bazasidagi imzolar bilan solishtiradi. Baza eski bo'lsa, yangi xavf ko'rinmaydi. Xulq nazorati esa dasturning harakatini kuzatadi.",
+  tasks: ['Eski baza bilan skanerlang', 'Bazani yangilab, qayta skanerlang', 'Topilgan 3 faylni karantinga oling', "Himoyasiz noma'lum dasturni ishga tushiring va fayllarni zaxiradan tiklang", "Xulq nazoratini yoqib, noma'lum dasturni to'xtating"],
+  init: () => ({ files: AVF.map(f => ({ n: f[0], sig: f[1], found: false, q: false, lock: false })), db: DB1, ver: 1, scan: -1, w: 0, scans: 0, guard: false, unk: null, uw: 0, damaged: false }),
+  tick(s, dt) {
+    if (s.scan >= 0) {
+      s.w += dt;
+      if (s.w >= .32) {
+        s.w = 0; const f = s.files[s.scan];
+        if (!f.q && s.db.includes(f.sig)) f.found = true;
+        s.scan++;
+        if (s.scan >= s.files.length) {
+          s.scan = -1; s.scans++;
+          const n = s.files.filter(x => x.found && !x.q).length;
+          if (s.ver === 1) { mark(0); say(`Skaner ${n} ta xavf topdi. Lekin baza eski: yangilash.exe hali "toza" ko'rinmoqda. Toza natija 100% kafolat emas.`, 'good'); }
+          else { mark(1); say(`Yangi baza bilan ${n} ta xavf topildi. Endi E55D imzosi ham tanish.`, 'good'); }
+        }
+      }
+    }
+    if (s.unk === 'run') {
+      s.uw += dt;
+      if (s.guard && s.uw > 1) { s.unk = 'blocked'; mark(4); say("Xulq nazorati dastur ko'p faylni birdaniga o'zgartirmoqchi bo'lganini sezdi va to'xtatdi. Bu imzo bazasida yo'q dasturni ham ushlashga yordam beradi.", 'good'); }
+      else if (!s.guard && s.uw > .5) {
+        s.uw = 0; const f = s.files.find(x => !x.q && !x.lock);
+        if (f) f.lock = true; else { s.unk = 'done'; s.damaged = true; say("Imzo bazada yo'q edi va xulq nazorati o'chiq edi, shuning uchun fayllar shifrlandi. Endi zaxira nusxadan tiklang.", 'bad'); }
+      }
+    }
+  },
+  draw(s) {
+    box(12, 12, 470, 516, COL.card, 'rgba(255,255,255,.12)');
+    tx('Kompyuterdagi fayllar', 30, 36, 20, '#fff', 'left', 700);
+    s.files.forEach((f, i) => {
+      const y = 60 + i * 57, c = f.q ? COL.mut : f.lock ? COL.red : f.found ? COL.red : COL.grn;
+      box(26, y, 442, 50, s.scan === i ? '#3b4a86' : COL.card2, s.scan === i ? COL.yel : null, 9);
+      tx(f.q ? '📦' : f.lock ? '🔒' : f.found ? '⚠️' : '📄', 48, y + 25, 20, '#fff', 'center');
+      tx(f.n, 70, y + 17, 16, f.q ? COL.mut : '#fff', 'left', 700, MONO);
+      tx('imzo: ' + f.sig, 70, y + 37, 13.5, COL.mut, 'left', 500, MONO);
+      tx(f.q ? 'karantinda' : f.lock ? 'shifrlangan' : f.found ? 'xavf topildi' : 'xavf topilmadi', 456, y + 25, 14, c, 'right', 700);
+    });
+    box(494, 12, 240, 330, COL.card, 'rgba(255,255,255,.12)');
+    tx('Imzolar bazasi', 510, 36, 19, '#fff', 'left', 700); tx(`Versiya ${s.ver}`, 510, 60, 15, s.ver === 2 ? COL.grn : COL.yel, 'left', 700);
+    s.db.forEach((d, i) => { const live = s.scan >= 0 && s.files[s.scan].sig === d; box(510, 80 + i * 44, 208, 36, live ? '#5a2433' : COL.card2, live ? COL.red : null, 8); tx(d, 614, 98 + i * 44, 18, '#fff', 'center', 700, MONO); });
+    box(746, 12, 242, 160, COL.card, 'rgba(255,255,255,.12)');
+    tx('Karantin', 762, 36, 19, '#fff', 'left', 700); tx('Yopiq, ishga tushmaydi', 762, 58, 14, COL.mut, 'left', 500);
+    s.files.filter(f => f.q).forEach((f, i) => tx('📦 ' + f.n, 762, 84 + i * 24, 14.5, '#fff', 'left', 600, MONO));
+    if (s.unk === 'blocked') tx("📦 noma'lum.exe", 762, 156, 14.5, '#fff', 'left', 600, MONO);
+    box(746, 184, 242, 158, COL.card, 'rgba(255,255,255,.12)');
+    tx('Zaxira nusxa', 762, 208, 19, '#fff', 'left', 700); tx('Alohida joyda saqlanadi', 762, 230, 14, COL.mut, 'left', 500);
+    tx('💾', 866, 288, 44, '#fff', 'center');
+    box(494, 354, 494, 174, COL.card, s.guard ? COL.grn : 'rgba(255,255,255,.12)');
+    tx('Xulq nazorati', 510, 378, 19, '#fff', 'left', 700); tx(s.guard ? 'Yoqilgan' : "O'chiq", 972, 378, 16, s.guard ? COL.grn : COL.red, 'right', 700);
+    const st = { run: s.guard ? "Kuzatilmoqda: dastur ko'p faylni o'zgartirmoqchi…" : "noma'lum.exe fayllarni shifrlamoqda…", blocked: "noma'lum.exe to'xtatildi va karantinga olindi", done: "noma'lum.exe barcha fayllarni shifrladi" }[s.unk];
+    wrap(st || "noma'lum.exe imzosi: F00D. Bu imzo bazada yo'q, ya'ni skaner uni tanimaydi.", 510, 420, 460, 17, s.unk === 'done' ? COL.red : '#dfe6ff', 25);
+  },
+  controls(row, s) {
+    const busy = s.scan >= 0 || s.unk === 'run';
+    row.push(CHIP('Skanerlash', () => { s.files.forEach(f => { if (!f.q) f.found = false; }); s.scan = 0; s.w = 0; render(); }, busy));
+    row.push(CHIP('Bazani yangilash', () => { s.db = DB2; s.ver = 2; say("Baza yangilandi. Endi qayta skanerlang.", ''); }, busy || !CH[2].t[0] || s.ver === 2));
+    row.push(CHIP('Karantinga olish', () => { s.files.forEach(f => { if (f.found) { f.q = true; f.found = false; } }); if (s.files.filter(f => f.q).length === 3) { mark(2); say("Uchala fayl karantinda: ular o'chirilmagan, lekin ishga tusha olmaydi.", 'good'); } else say("Karantinga olindi, lekin xavfli fayl hali qolgan bo'lishi mumkin. Bazani yangilab, qayta skanerlang.", 'bad'); }, busy || !s.files.some(f => f.found)));
+    row.push(CHIP(s.guard ? "Xulq nazorati: o'chirish" : 'Xulq nazorati: yoqish', () => { s.guard = !s.guard; render(); }, busy));
+    row.push(CHIP("noma'lum.exe", () => { s.unk = 'run'; s.uw = 0; render(); }, busy || !CH[2].t[2] || s.damaged));
+    row.push(CHIP('Zaxiradan tiklash', () => { s.files.forEach(f => f.lock = false); s.damaged = false; s.unk = null; mark(3); say("Fayllar zaxira nusxadan qaytdi, to'lov kerak bo'lmadi. Zaxira kompyuterdan alohida saqlansa, u ham shifrlanmaydi.", 'good'); }, !s.damaged));
+  },
+  panel(el) { el.append(h('p', { cls: 'note' }, "Antivirus xavfni kamaytiradi, lekin hammasini ushlay olmaydi. U doim yangilangan va yoqilgan bo'lishi kerak.")); },
+});
+
+/* ---------- 4. Parol ---------- */
+const WORDS = ['123456', '12345678', '123456789', '1234567890', '111111', '000000', 'qwerty', 'qwertyuiop', 'password', 'parol', 'admin', 'abc123', 'iloveyou', 'salom', 'toshkent', 'samarqand', 'uzbekistan', 'ozbekiston', 'futbol', 'football', 'kompyuter', 'maktab', 'aziz', 'aziza', 'ali', 'sardor', 'madina', 'dilnoza', 'jasur', 'nodir', 'malika', 'bobur', 'shahzod', 'sevara', 'dragon', 'minecraft', 'roblox', 'telefon', 'mama', 'dada'];
+const SUF = ['', '1', '12', '123', '1234', '!', '!!', '007', '2008', '2009', '2010', '2011', '2012', '2013', '2014', '2025', '2026'];
+const LEET = w => w.replace(/a/g, '@').replace(/o/g, '0').replace(/i/g, '1').replace(/s/g, '$');
+function guesses() { const o = []; for (const w of WORDS) for (const v of [w, w[0].toUpperCase() + w.slice(1), w.toUpperCase(), LEET(w), LEET(w)[0].toUpperCase() + LEET(w).slice(1)]) for (const x of SUF) o.push(v + x); return o; }
+const GUESS = guesses();
+function pwInfo(p) {
+  const cl = [/[a-z]/, /[A-Z]/, /[0-9]/, /[^a-zA-Z0-9]/], size = [26, 26, 10, 33];
+  let n = 0, k = 0; cl.forEach((r, i) => { if (r.test(p)) { n += size[i]; k++; } });
+  const lg10 = p.length * Math.log10(n || 1), secs = lg10 - Math.log10(2e10);
+  const same = p.length > 3 && new Set(p).size <= 2;
+  return { len: p.length, classes: k, set: n, lg10, secs, same };
+}
+function human(l) {
+  if (l < 0) return '1 soniyadan kam';
+  const v = Math.pow(10, l), Y = 31557600;
+  if (v < 60) return `${Math.round(v)} soniya`; if (v < 3600) return `${Math.round(v / 60)} daqiqa`;
+  if (v < 86400) return `${Math.round(v / 3600)} soat`; if (v < Y) return `${Math.round(v / 86400)} kun`;
+  const y = v / Y;
+  if (y < 1e3) return `${Math.round(y)} yil`; if (y < 1e6) return `${Math.round(y / 1e3)} ming yil`;
+  if (y < 1e9) return `${Math.round(y / 1e6)} million yil`; return 'milliardlab yil';
+}
+const SITES = ["O'yinzor", 'KitobGram', 'MaktabPochta'];
+CH.push({
+  short: 'Parol', lesson: '6 va 19-dars · 4-bob', title: 'Parolga hujum qiling',
+  intro: "O'ylab topilgan parol yozing yoki namunani tanlang. Hujumchi dasturi avval mashhur parollar ro'yxatini sinaydi, keyin qolgan variantlarni hisoblaydi.",
+  tasks: ['Zaif parolni ro\'yxat hujumiga soling', 'Qisqa, lekin murakkab parolni sinang (7 belgigacha)', "14+ belgili, kamida 1000 yil chidaydigan ibora tuzing", 'Sizib chiqqan parol boshqa saytlarni ochmasligiga erishing'],
+  init: () => ({ pw: '', res: null, atk: null, sites: [0, 0, 0], leak: -1, lw: 0, opened: [], best: 0 }),
+  tick(s, dt) {
+    const a = s.atk;
+    if (a) {
+      a.i = Math.min(GUESS.length, a.i + Math.ceil(GUESS.length * dt / 2.2));
+      const hit = GUESS.indexOf(a.pw);
+      if (hit >= 0 && hit < a.i) { s.atk = null; s.res = { found: true, n: hit + 1 }; mark(0); say(`Parol ${hit + 1}-urinishda topildi. Ism, yil va oddiy almashtirishlar (a→@) hujumchi ro'yxatida bor.`, 'bad'); }
+      else if (a.i >= GUESS.length) {
+        s.atk = null; const f = pwInfo(a.pw); s.res = { found: false, f };
+        if (f.same) { s.res.found = true; say("Bir xil belgilardan iborat parolni hujumchi birinchi navbatda sinaydi.", 'bad'); return; }
+        if (f.len <= 7 && f.classes >= 3) { mark(1); say(`Ro'yxatda yo'q, lekin atigi ${f.len} belgi. Topish vaqti: ${human(f.secs)}. Murakkablik uzunlik o'rnini bosmaydi.`, 'bad'); }
+        else if (f.len >= 14 && f.secs >= Math.log10(31557600 * 1000)) { mark(2); say(`Ro'yxatda yo'q, taxminiy chidamlilik: ${human(f.secs)}. Uzunlik parolni eng ko'p kuchaytiradi.`, 'good'); }
+        else say(`Ro'yxatda yo'q. Taxminiy chidamlilik: ${human(f.secs)}.`, '');
+      }
+    }
+    if (s.leak >= 0) {
+      s.lw += dt;
+      if (s.lw > 2.2) {
+        const same = s.sites.map((p, i) => i !== 0 && p === s.sites[0]), n = same.filter(Boolean).length;
+        s.opened = [0].concat(same.map((v, i) => v ? i : -1).filter(i => i > 0)); s.leak = -1;
+        if (n) say(`O'yinzor'dan sizgan parol yana ${n} ta saytni ochdi. Hujumchi bir parolni boshqa saytlarda ham sinaydi. Har saytga alohida parol bering.`, 'bad');
+        else { mark(3); say("Faqat O'yinzor akkaunti zarar ko'rdi, boshqalari yopiq qoldi. Sizib chiqqan parolni darhol almashtiring.", 'good'); }
+      }
+    }
+  },
+  draw(s) {
+    box(12, 12, 560, 316, '#0c1022', 'rgba(255,255,255,.12)');
+    tx('🤖 Hujumchi dasturi', 30, 38, 20, '#fff', 'left', 700);
+    if (s.atk) {
+      tx(`Urinish: ${s.atk.i} / ${GUESS.length}`, 30, 72, 16, COL.yel, 'left', 700, MONO);
+      for (let i = 0; i < 8; i++) { const w = GUESS[Math.max(0, s.atk.i - 1 - i)]; tx(w, 30, 104 + i * 26, 17, `rgba(143,240,189,${1 - i / 9})`, 'left', 600, MONO); }
+    } else if (s.res) {
+      if (s.res.found) { tx('🔓 Parol topildi', 292, 130, 32, COL.red, 'center', 700); tx(s.res.n ? `${s.res.n}-urinishda, bir zumda` : 'Bir zumda', 292, 180, 20, '#fff', 'center', 500); }
+      else { tx("🔒 Ro'yxatda topilmadi", 292, 130, 30, COL.grn, 'center', 700); tx('Barcha variantlarni sinash:', 292, 180, 18, COL.mut, 'center', 500); tx('≈ ' + human(s.res.f.secs), 292, 222, 28, '#fff', 'center', 700); }
+    } else tx('Hujum kutilmoqda', 292, 165, 22, COL.mut, 'center', 500);
+    tx("Taxmin: sekundiga 10 milliard urinish", 292, 306, 14, COL.mut, 'center', 500);
+    const f = pwInfo(s.pw);
+    box(584, 12, 404, 316, COL.card, 'rgba(255,255,255,.12)');
+    tx('Parol tahlili', 602, 38, 20, '#fff', 'left', 700);
+    const rows = [['Uzunlik', `${f.len} belgi`, f.len / 16], ['Belgi turlari', `${f.classes} / 4`, f.classes / 4], ['Variantlar soni', f.len ? `≈ 10^${Math.round(f.lg10)}` : '0', f.lg10 / 30]];
+    rows.forEach((r, i) => { const y = 74 + i * 66; tx(r[0], 602, y, 16, COL.mut, 'left', 500); tx(r[1], 970, y, 17, '#fff', 'right', 700); bar(602, y + 16, 368, 12, r[2], r[2] > .66 ? COL.grn : r[2] > .33 ? COL.yel : COL.red); });
+    tx('Har bir qo\'shimcha belgi variantlarni', 602, 280, 15, COL.mut, 'left', 500); tx("o'nlab marta ko'paytiradi", 602, 302, 15, COL.mut, 'left', 500);
+    box(12, 340, 976, 188, COL.card, 'rgba(255,255,255,.12)');
+    tx('Bitta parol hamma joyda bo\'lsa nima bo\'ladi?', 30, 364, 19, '#fff', 'left', 700);
+    SITES.forEach((n, i) => {
+      const x = 30 + i * 240, op = s.opened.includes(i);
+      box(x, 390, 224, 122, op ? '#4a1e2b' : COL.card2, op ? COL.red : null, 10);
+      tx(n, x + 112, 416, 18, '#fff', 'center', 700);
+      tx(s.sites[i] === 0 ? 'Parol: umumiy' : 'Parol: alohida', x + 112, 446, 15, s.sites[i] === 0 ? COL.yel : COL.grn, 'center');
+      tx(op ? '🔓 Ochildi' : '🔒 Yopiq', x + 112, 482, 18, op ? COL.red : COL.grn, 'center', 700);
+      if (s.leak >= 0 && i > 0) { const t = Math.min(1, s.lw / 2); dot(lerp(142, x + 112, t), 376 + Math.sin(t * 3.14) * -8, 8, COL.yel); }
+    });
+    tx('🕵️', 880, 432, 44, '#fff', 'center'); tx(s.leak >= 0 ? 'Sinamoqda…' : 'Hujumchi', 880, 482, 16, COL.mut, 'center');
+  },
+  controls(row, s) {
+    row.push(CHIP("O'yinzor'dan parol sizdi", () => { s.leak = 0; s.lw = 0; s.opened = []; render(); }, s.leak >= 0));
+    [1, 2].forEach(i => row.push(CHIP(`${SITES[i]}: alohida parol`, () => { s.sites[i] = i; s.opened = []; render(); }, s.sites[i] !== 0)));
+  },
+  panel(el, s) {
+    el.append(h('p', { cls: 'note' }, "Haqiqiy parolingizni bu yerga yozmang! Faqat o'ylab topilgan misol kiriting."));
+    const inp = h('input', { id: 'pw', type: 'text', autocomplete: 'off', spellcheck: 'false', maxlength: 40, 'aria-label': "O'ylab topilgan parol", placeholder: "Misol parol" });
+    inp.value = s.pw; inp.oninput = () => { s.pw = inp.value; s.res = null; };
+    const go = () => { if (!s.pw) return say('Avval misol parol yozing.', 'bad'); s.res = null; s.atk = { pw: s.pw, i: 0 }; CH[cur].fb = null; render(); };
+    inp.onkeydown = e => { if (e.key === 'Enter') go(); };
+    el.append(inp, h('div', { cls: 'row' }, ['aziza2012', 'P@r0l123', 'K#9x!', "ko'k-tarvuz-uchadi-yomg'irda"].map(v => h('button', { cls: 'chip', on: () => { s.pw = v; s.res = null; render(); } }, v))), B('Hujumni boshlash', go));
+  },
+});
+
+/* ---------- 5. 2FA ---------- */
+const SEED = Math.floor(Math.random() * 1e9);
+const slotNow = () => Math.floor(Date.now() / 30000);
+function otp(slot) { let x = (slot ^ SEED) >>> 0; x = Math.imul(x ^ (x >>> 15), 2246822519) >>> 0; x = Math.imul(x ^ (x >>> 13), 3266489917) >>> 0; return String(((x ^ (x >>> 16)) >>> 0) % 1000000).padStart(6, '0'); }
+CH.push({
+  short: '2FA', lesson: '6 va 19-dars · 5-bob', title: 'Parol sizsa ham akkaunt yopiq',
+  intro: "2FA ikki bosqichli tekshiruv: parol (siz biladigan narsa) va telefondagi kod (sizda bor narsa). Hujumchida parol allaqachon bor.",
+  tasks: ['2FA o\'chiq paytda hujumchi kirsin', '2FA ni yoqing', "2FA bilan hujumchi yana urinsin", 'Telefondagi kod bilan o\'zingiz kiring', "Kod so'ragan odamga to'g'ri javob bering"],
+  init: () => ({ on: false, breach: false, inn: false, anim: null, msg: false, blocked: false }),
+  tick(s, dt) { if (s.anim) { s.anim.t += dt * .9; if (s.anim.t >= 1) { const f = s.anim.f; s.anim = null; f(); } } },
+  draw(s) {
+    box(12, 12, 300, 516, COL.card, 'rgba(255,255,255,.12)');
+    tx('🕵️ Hujumchi', 162, 50, 22, '#fff', 'center', 700);
+    tx('Biladi: parol ✓', 162, 92, 17, COL.yel, 'center');
+    tx(s.on ? 'Kod: yo\'q ✗' : 'Kod kerak emas', 162, 122, 17, s.on ? COL.grn : COL.mut, 'center');
+    box(350, 12, 300, 516, s.breach ? '#4a1e2b' : COL.card, s.breach ? COL.red : 'rgba(255,255,255,.12)');
+    tx('KitobGram serveri', 500, 50, 20, '#fff', 'center', 700);
+    tx(s.breach ? '🔓' : '🔒', 500, 170, 76, '#fff', 'center');
+    tx(s.breach ? 'Akkaunt buzildi' : s.inn ? 'Siz kirdingiz' : 'Akkaunt yopiq', 500, 250, 24, s.breach ? COL.red : s.inn ? COL.grn : '#fff', 'center', 700);
+    box(372, 296, 256, 44, COL.card2, null, 9); tx('1-bosqich: parol', 500, 318, 16, '#fff', 'center');
+    box(372, 350, 256, 44, s.on ? '#1d4a3d' : COL.card2, s.on ? COL.grn : null, 9); tx(s.on ? '2-bosqich: kod (yoqilgan)' : "2-bosqich: o'chiq", 500, 372, 16, s.on ? COL.grn : COL.mut, 'center');
+    if (s.blocked) wrap("Parol to'g'ri, lekin kod noto'g'ri. Kirish rad etildi.", 500, 430, 260, 16, COL.grn, 23, 600, 'center');
+    box(700, 12, 288, 516, '#0c1022', 'rgba(255,255,255,.2)', 26);
+    tx('Telefoningiz', 844, 50, 19, '#fff', 'center', 700);
+    if (s.on) {
+      const left = 30 - Math.floor(Date.now() / 1000) % 30;
+      tx('Autentifikator ilovasi', 844, 100, 15, COL.mut, 'center', 500);
+      tx(otp(slotNow()).replace(/(...)(...)/, '$1 $2'), 844, 165, 42, COL.yel, 'center', 700, MONO);
+      bar(740, 205, 208, 10, left / 30, left < 8 ? COL.red : COL.grn);
+      tx(`Kod ${left} soniyadan keyin almashadi`, 844, 236, 15, COL.mut, 'center', 500);
+    } else tx('2FA yoqilmagan', 844, 165, 19, COL.mut, 'center', 500);
+    if (s.msg) { box(716, 280, 256, 166, '#27406f', COL.blu, 12); wrap('"Salom, men KitobGram yordam xizmatidanman. Akkauntingiz yopiladi. Telefoningizdagi kodni ayting."', 844, 308, 226, 15.5, '#fff', 22, 500, 'center'); }
+    else if (s.blocked) { box(716, 280, 256, 90, '#4a3a1a', COL.yel, 12); wrap("Kimdir akkauntingizga kirishga urindi. Parolni almashtiring.", 844, 312, 226, 15, '#fff', 21, 500, 'center'); }
+    if (s.anim) { const a = s.anim; dot(lerp(a.x0, a.x1, a.t), 200, 12, a.c); tx(a.l, lerp(a.x0, a.x1, a.t), 174, 15, a.c, 'center', 700); }
+  },
+  controls(row, s) {
+    const busy = !!s.anim;
+    row.push(CHIP('Hujumchi kirishga ursin', () => {
+      s.blocked = false;
+      s.anim = { t: 0, x0: 240, x1: 400, c: COL.red, l: 'parol', f() {
+        if (!s.on) { s.breach = true; mark(0); say("Parol to'g'ri, boshqa tekshiruv yo'q: hujumchi kirdi. Bitta parol yetarli himoya emas.", 'bad'); }
+        else { s.blocked = true; mark(2); say("Parol to'g'ri bo'lsa ham, hujumchida telefon yo'q, shuning uchun kira olmadi. Siz ogohlantirish oldingiz.", 'good'); }
+      } }; render();
+    }, busy || s.breach));
+    row.push(CHIP('Akkauntni tiklash', () => { s.breach = false; s.msg = false; say('Akkaunt qaytarildi, parol almashtirildi. Endi himoyani kuchaytiring.', ''); }, !s.breach));
+    row.push(CHIP('2FA ni yoqish', () => { s.on = true; s.breach = false; mark(1); say('2FA yoqildi. Telefonda har 30 soniyada yangi kod chiqadi.', 'good'); }, s.on || !CH[4].t[0]));
+    row.push(CHIP("\"Yordam xizmati\"dan xabar", () => { s.msg = true; render(); }, !CH[4].t[3] || s.msg || s.breach));
+  },
+  panel(el, s) {
+    if (s.on && CH[4].t[2]) {
+      el.append(h('h3', null, "O'zingiz kiring: telefondagi kodni yozing"));
+      const inp = h('input', { id: 'code', inputmode: 'numeric', maxlength: 7, autocomplete: 'off', 'aria-label': '6 xonali kod', placeholder: '000000' });
+      const go = () => {
+        const v = inp.value.replace(/\D/g, '');
+        if (v === otp(slotNow())) { s.inn = true; mark(3); say("Kod to'g'ri. Parol va kod birga kirishga ruxsat berdi.", 'good'); }
+        else if (v === otp(slotNow() - 1)) say('Bu kod eskirgan. Telefondagi yangi kodni yozing.', 'bad');
+        else say("Kod noto'g'ri. Telefon ekranidagi 6 ta raqamni yozing.", 'bad');
+      };
+      inp.onkeydown = e => { if (e.key === 'Enter') go(); };
+      el.append(inp, B('Kirish', go));
+    }
+    if (s.msg) el.append(h('h3', null, "Xabarga nima qilasiz?"), h('div', { cls: 'row' },
+      B('Kodni aytaman', () => { s.msg = false; s.breach = true; s.inn = false; say("Hujumchi kodni ishlatib kirdi. Haqiqiy yordam xizmati hech qachon kod so'ramaydi. Akkauntni tiklang va qayta urinib ko'ring.", 'bad'); }, { alt: 1 }),
+      B("Aytmayman, ilovaning o'zidan tekshiraman", () => { s.msg = false; mark(4); say("To'g'ri. Kodni hech kimga bermang: na do'stga, na \"yordam xizmati\"ga. Bunday xabar haqida kattalarga ayting.", 'good'); })));
+  },
+});
+
+/* ---------- 6. Phishing ---------- */
+const MAILS = [
+  { from: 'KitobGram Xavfsizlik', addr: 'yordam@kitobgram-xavfsiz.example', sub: "Akkauntingiz 24 soatda o'chiriladi!", body: "Hurmatli foydalanuvchi, akkauntingizda muammo topildi. Zudlik bilan quyidagi havola orqali parolingizni tasdiqlang, aks holda hamma narsani yo'qotasiz.", link: 'https://kitobgram.example.hisob-tekshir.example/kirish', ph: true,
+    c: { from: "Manzil kitobgram.example emas, unga o'xshatilgan boshqa domen.", sub: "Shoshiltirish va qo'rqitish: o'ylab ko'rishga vaqt bermaydi.", body: "Ismingiz yo'q, \"hurmatli foydalanuvchi\" deyilgan va parol so'ralmoqda.", link: "Asosiy domen hisob-tekshir.example. \"kitobgram\" so'zi faqat niqob." }, why: "Havolaning asosiy domeni kitobgram.example emas, xat esa sizni shoshiltiradi." },
+  { from: 'Maktab kutubxonasi', addr: 'kutubxona@maktab14.example', sub: 'Kitob qaytarish muddati', body: "Salom, Sardor. \"Sariq devni minib\" kitobini juma kunigacha qaytarishni unutmang. Ro'yxatni kutubxona sahifasida ko'rishingiz mumkin.", link: 'https://maktab14.example/kutubxona', ph: false, c: {}, why: "Sizni ismingiz bilan chaqirgan, tanish domen, shoshiltirish yo'q, parol so'ralmagan." },
+  { from: 'Sovrin markazi', addr: 'sovrin@tezpochta.example', sub: 'Tabriklaymiz! Siz telefon yutdingiz', body: "Siz ishtirok etmagan bo'lsangiz ham g'olib bo'ldingiz! Sovrinni olish uchun ilovadagi faylni oching. Taklif bugun tugaydi.", file: 'sovrin_royxati.pdf.exe', ph: true,
+    c: { from: "Tashkilot nomi bor, lekin manzil umumiy pochta xizmatidan.", sub: "Siz qatnashmagan tanlovdagi sovrin: juda yaxshi bo'lgani uchun shubhali.", body: "\"Bugun tugaydi\" deb shoshiltirmoqda.", file: "Oxiri .exe: bu hujjat emas, dastur. Ochilsa zararli dastur ishga tushishi mumkin." }, why: "Fayl oxiri .exe, ya'ni dastur, sovrin esa siz qatnashmagan tanlovdan." },
+  { from: 'KitobGram', addr: 'xabar@kitobgram.example', sub: 'Yangi qurilmadan kirildi', body: "Salom, Sardor. Akkauntingizga yangi qurilmadan kirildi. Bu siz bo'lsangiz, hech narsa qilish shart emas. Bu siz bo'lmasangiz, ilovani o'zingiz ochib, Sozlamalar bo'limidan parolni almashtiring.", ph: false, c: {}, why: "Domen to'g'ri, havola yo'q va xat parol so'ramaydi: ilovani o'zingiz ochishni aytadi." },
+  { from: 'KitobGram', addr: 'yordam@k1tobgram.example', sub: 'Parolingizni yangilang', body: "Salom. Xavfsizlik uchun barcha foydalanuvchilar parolni bugun yangilashi kerak. Sahifamiz xavfsiz: manzilda qulf belgisi bor.", link: 'https://k1tobgram.example/parol', ph: true,
+    c: { from: "k1tobgram: i o'rniga 1 raqami yozilgan. Bu boshqa domen.", body: "Qulf belgisi faqat ulanish shifrlanganini bildiradi, sayt halolligini emas.", link: "Domen k1tobgram.example. HTTPS soxta saytda ham bo'lishi mumkin." }, why: "Domendagi bitta belgi almashtirilgan. Qulf belgisi bu yerda hech narsani isbotlamaydi." },
+  { from: 'Sinf rahbari', addr: 'sinf.rahbar.8b@tezpochta.example', sub: 'Shoshilinch va maxfiy', body: "Sardor, men sinf rahbaringizman. Telefonimni yo'qotdim, shu pochtadan yozyapman. Telefoningizga kelgan SMS kodni menga yuboring. Hech kimga aytmang.", ph: true,
+    c: { from: "Maktab pochtasi emas, boshqa odam ham shunday manzil ochishi mumkin.", sub: "Shoshilinch va maxfiy: hujumchi tekshirishingizni xohlamaydi.", body: "Kod so'ramoqda va \"hech kimga aytmang\" demoqda. Bu ijtimoiy muhandislik." }, why: "O'zini tanish odam qilib ko'rsatgan, kod so'ragan va maxfiy saqlashni talab qilgan. O'qituvchini boshqa yo'l bilan tekshiring." },
+];
+function parts(u) { const m = u.match(/^(https?:\/\/)([^/]+)(.*)$/), hs = m[2].split('.'), root = hs.slice(-2).join('.'), sub = hs.slice(0, -2).join('.'); return { sc: m[1], sub: sub ? sub + '.' : '', root, path: m[3] }; }
+function mailPick(s, part) {
+  const m = MAILS[s.i], w = m.c[part], k = s.i + ':' + part;
+  if (w) { if (!s.cl.includes(k)) s.cl.push(k); if (s.cl.length >= 3) mark(1); say('Belgi topildi: ' + w, 'good'); }
+  else if (part === 'link' || part === 'file') say(m.ph ? 'Bu qismda alohida shubha yo\'q.' : "Bu qism tartibli ko'rinadi: domen maktab yoki xizmatning o'ziniki.", '');
+  else say("Bu qismda shubhali belgi yo'q.", '');
+}
+CH.push({
+  short: 'Phishing', lesson: '19-dars · 6-bob', title: 'Soxta xatni toping',
+  intro: "Xatning qismlarini bosib tekshiring: yuboruvchi, mavzu, matn, havola va ilova. Havolani ochmasdan uning haqiqiy manzilini pastda o'qing. Barcha nom va manzillar to'qilgan.",
+  tasks: ['6 ta xatni to\'g\'ri baholang', 'Kamida 3 ta shubhali belgini toping'],
+  init: () => ({ i: 0, ans: {}, cl: [] }),
+  draw(s) {
+    box(12, 12, 244, 516, COL.card, 'rgba(255,255,255,.12)');
+    tx('Kirish qutisi', 28, 36, 19, '#fff', 'left', 700);
+    MAILS.forEach((m, i) => {
+      const y = 58 + i * 76, a = s.ans[i];
+      box(22, y, 224, 68, i === s.i ? '#3b4a86' : COL.card2, i === s.i ? COL.yel : null, 9);
+      tx(fit(m.from, 170, 15, 700), 34, y + 21, 15, '#fff', 'left', 700);
+      tx(fit(m.sub, 200, 13.5, 500), 34, y + 46, 13.5, COL.mut, 'left', 500);
+      if (a) tx(m.ph ? '🎣' : '✅', 234, y + 21, 16, '#fff', 'right');
+      hot(22, y, 224, 68, () => { s.i = i; CH[cur].fb = null; render(); });
+    });
+    const m = MAILS[s.i]; box(268, 12, 720, 374, '#f6f8fd', null);
+    const part = (k, x, y, w, hh) => { const f = s.cl.includes(s.i + ':' + k); box(x, y, w, hh, f ? 'rgba(209,60,60,.14)' : '#fff', f ? '#d13c3c' : '#dde3ee', 8); hot(x, y, w, hh, () => mailPick(s, k)); };
+    part('from', 282, 24, 692, 54); tx(m.from, 296, 41, 17, '#1c2442', 'left', 700); tx('<' + m.addr + '>', 296, 63, 15, '#5a6484', 'left', 600, MONO);
+    part('sub', 282, 86, 692, 40); tx(fit(m.sub, 665, 19, 700), 296, 106, 19, '#1c2442', 'left', 700);
+    part('body', 282, 134, 692, 150); wrap(m.body, 296, 158, 664, 17, '#1c2442', 25);
+    if (m.link) { part('link', 282, 292, 692, 46); tx("🔗 Havola (manzilini pastda o'qing)", 296, 315, 16, '#2b4fb8', 'left', 700); }
+    if (m.file) { part('file', 282, 292, 692, 46); tx('📎 ' + m.file, 296, 315, 16, '#1c2442', 'left', 700, MONO); }
+    box(268, 398, 720, 130, COL.card, 'rgba(255,255,255,.12)');
+    if (m.link) {
+      const p = parts(m.link); tx('Havolaning haqiqiy manzili', 286, 422, 17, '#fff', 'left', 700);
+      let x = 286; const seg = [[p.sc, COL.mut], [p.sub, COL.mut], [p.root, COL.yel], [p.path, COL.mut]];
+      let rx = 0, rw = 0;
+      seg.forEach(([t, c], i) => { g2.font = `700 16px ${MONO}`; const w = g2.measureText(t).width; if (i === 2) { rx = x; rw = w; } tx(t, x, 460, 16, c, 'left', 700, MONO); x += w; });
+      line(rx, 474, rx + rw, 474, COL.yel, 3); tx('Asosiy domen: egasini shu qism ko\'rsatadi', Math.min(rx, 620), 498, 15, COL.yel, 'left', 600);
+    } else { tx("Bu xatda havola yo'q", 286, 440, 18, COL.mut, 'left', 500); tx("Domen o'qish qoidasi: manzilning / belgisidan oldingi oxirgi qismiga qarang.", 286, 478, 15.5, '#dfe6ff', 'left', 500); }
+  },
+  controls(row, s) {
+    const m = MAILS[s.i];
+    [['from', 'Yuboruvchi'], ['sub', 'Mavzu'], ['body', 'Matn']].concat(m.link ? [['link', 'Havola']] : m.file ? [['file', 'Ilova']] : []).forEach(([k, l]) => row.push(CHIP(l, () => mailPick(s, k))));
+  },
+  panel(el, s) {
+    const m = MAILS[s.i], pick = v => {
+      if (v === m.ph) {
+        s.ans[s.i] = true; if (Object.keys(s.ans).length === MAILS.length) mark(0);
+        const nx = MAILS.findIndex((_, i) => !s.ans[i]); const msg = "To'g'ri. " + m.why; if (nx >= 0) s.i = nx; say(msg, 'good');
+      } else say((v ? "Bu xat xavfsiz edi. " : "Bu phishing edi. ") + m.why, 'bad');
+    };
+    el.append(h('h3', null, `Xat ${s.i + 1}: qaroringiz?`), h('div', { cls: 'row' }, B('🎣 Phishing', () => pick(true)), B('✅ Xavfsiz', () => pick(false), { alt: 1 })));
+    el.append(h('p', null, `Baholangan: ${Object.keys(s.ans).length} / ${MAILS.length} · Belgilar: ${s.cl.length}`));
+  },
+});
+
+/* ---------- 7. Raqamli iz ---------- */
+const AUD = ['Hammaga', "Do'stlarga", 'Faqat men'];
+const POSTS = [
+  { k: 'book', l: "Sevimli kitobim: \"O'tkan kunlar\"", r: 0, a: 0 },
+  { k: 'school', l: '14-maktab, 8-B sinf', r: 2, a: 0, copy: true },
+  { k: 'club', l: 'Har shanba 15:00 da futbol to\'garagi', r: 2, a: 0 },
+  { k: 'phone', l: 'Telefon: +998 90 000 00 00', r: 3, a: 0 },
+  { k: 'home', l: "Uyim: Bog'ishamol ko'chasi, 7-uy", r: 3, a: 0 },
+  { k: 'geo', l: "Hozir shu yerdaman 📍 (joylashuvli rasm)", r: 3, a: 1 },
+  { k: 'birth', l: "Tug'ilgan sanam: 12.03.2012", r: 2, a: 1 },
+];
+const SEES = { school: 'Qaysi maktabda o\'qishini biladi', club: 'Haftada qachon qayerda bo\'lishini biladi', phone: 'Telefoniga yoza oladi', home: 'Uyi qayerdaligini biladi', geo: 'Hozir qayerdaligini biladi', birth: 'Parol taxmin qilish uchun sanani biladi' };
+function seen(s) { return s.p.filter(p => p.a === 0 || (p.a === 1 && s.friend) || (p.k === 'school')); }
+function risk(s) { const v = seen(s), has = k => v.some(p => p.k === k); return v.reduce((a, p) => a + p.r, 0) + (has('school') && has('club') ? 3 : 0); }
+function t7(s) { const hobby = s.p[0].a === 0; if (risk(s) <= 2 && hobby) mark(0); }
+CH.push({
+  short: 'Raqamli iz', lesson: '19-dars · 7-bob', title: 'Begona odam sizni qanchalik biladi?',
+  intro: "Raqamli iz — internetda qoldirgan barcha ma'lumotingiz. Kichik ma'lumotlar qo'shilib, katta rasm hosil qiladi. Post ustiga bosib, kimga ko'rinishini o'zgartiring.",
+  tasks: ["Xavf darajasini 2 yoki undan pastga tushiring, sevimli kitob esa hammaga ochiq qolsin", 'Maktab postini yashirib, nusxa qolganini ko\'ring', "Notanish do'stlik so'roviga to'g'ri javob bering"],
+  init: () => ({ p: POSTS.map(p => Object.assign({}, p)), friend: false, req: true }),
+  draw(s) {
+    box(12, 12, 560, 516, COL.card, 'rgba(255,255,255,.12)');
+    tx('Sardorning profili', 30, 38, 20, '#fff', 'left', 700);
+    s.p.forEach((p, i) => {
+      const y = 62 + i * 65, c = [COL.red, COL.yel, COL.grn][p.a];
+      box(26, y, 532, 57, COL.card2, null, 9);
+      tx(fit(p.l, 370, 16), 40, y + 20, 16, '#fff');
+      if (p.copy && p.a !== 0) tx('Yashirildi, lekin ekran nusxasi qolgan', 40, y + 42, 13.5, COL.yel, 'left', 600);
+      box(428, y + 12, 118, 33, '#10162e', c, 8); tx(AUD[p.a], 487, y + 29, 14.5, c, 'center', 700);
+      hot(26, y, 532, 57, () => cyc(s, i));
+    });
+    box(584, 12, 404, 516, '#0c1022', 'rgba(255,255,255,.12)');
+    tx('🕵️ Begona odam ko\'radi', 602, 38, 20, '#fff', 'left', 700);
+    const v = seen(s), r = risk(s), mx = 18;
+    tx('Xavf darajasi', 602, 72, 16, COL.mut, 'left', 500); tx(`${r}`, 970, 72, 22, r <= 2 ? COL.grn : r <= 7 ? COL.yel : COL.red, 'right', 700);
+    bar(602, 88, 368, 14, r / mx, r <= 2 ? COL.grn : r <= 7 ? COL.yel : COL.red);
+    let y = 126; v.forEach(p => { if (SEES[p.k]) y = wrap('• ' + SEES[p.k], 602, y, 368, 16, '#dfe6ff', 22) + 5; });
+    if (v.some(p => p.k === 'school') && v.some(p => p.k === 'club')) y = wrap("Maktab va jadval birlashib, kun tartibini ochib beradi", 602, y + 4, 368, 16, COL.red, 22, 700) + 5;
+    if (s.friend) y = wrap("Do'st bo'lgani uchun \"Do'stlarga\" postlar ham ochiq", 602, y + 4, 368, 16, COL.yel, 22, 600) + 5;
+    if (s.req) { box(602, 440, 368, 72, '#27406f', COL.blu, 10); tx("👤 Notanish: \"Salom, do'st bo'laylik!\"", 786, 462, 15.5, '#fff', 'center', 600); tx('Umumiy tanishlar yo\'q', 786, 490, 14, COL.mut, 'center', 500); }
+  },
+  controls(row, s) {
+    s.p.forEach((p, i) => row.push(CHIP(p.k === 'book' ? 'Kitob' : { school: 'Maktab', club: "To'garak", phone: 'Telefon', home: 'Uy', geo: 'Joylashuv', birth: 'Sana' }[p.k], () => cyc(s, i))));
+  },
+  panel(el, s) {
+    if (s.req) el.append(h('h3', null, "Do'stlik so'rovi"), h('div', { cls: 'row' },
+      B('Qabul qilish', () => { s.friend = true; s.req = false; say("Endi \"Do'stlarga\" postlar ham begona odamga ochildi. Do'stlikdan chiqarib, xatoni tuzating.", 'bad'); }, { alt: 1 }),
+      B('Rad etish', () => { s.req = false; mark(2); say("To'g'ri. Hayotda tanimagan odamni do'st qilib qo'shmang.", 'good'); })));
+    else if (s.friend) el.append(B("Do'stlikdan chiqarish", () => { s.friend = false; mark(2); t7(s); say("Xato tuzatildi. Lekin u ko'rib ulgurgan ma'lumotni qaytarib bo'lmaydi.", 'good'); }));
+    el.append(h('p', { cls: 'note' }, "Internetga chiqqan narsani boshqalar saqlab olishi mumkin. Joylashtirishdan oldin o'ylang."));
+  },
+});
+function cyc(s, i) {
+  const p = s.p[i]; p.a = (p.a + 1) % 3;
+  if (p.copy && p.a !== 0) { mark(1); CH[cur].fb = { t: "Post yashirildi, lekin kimdir ekran nusxasini olib ulgurgan. Bu ma'lumot begonada qoladi. Raqamli izni to'liq o'chirib bo'lmaydi.", k: '' }; }
+  t7(s); render();
+}
+
+/* ---------- 8. Xavfsiz kun ---------- */
+const DAY = [
+  { i: '🔌', t: 'Maktab hovlisida begona fleshka topdingiz.', o: [["Kompyuterga ulab, kimnikiligini ko'raman", 0, "Fleshkada zararli dastur bo'lishi mumkin. Ulash qurilmani xavf ostiga qo'yadi."], ["Ulamasdan o'qituvchiga topshiraman", -1, "To'g'ri. Noma'lum fleshkani ulamang, kattalarga bering."], ["Uyga olib borib, o'zimning kompyuterimda ochaman", 0, "Xavf o'zgarmaydi, faqat zarar uydagi kompyuterga tushadi."]] },
+  { i: '📶', t: 'Kafeda parolsiz "Bepul_WiFi" tarmog\'i bor. Akkauntingizga kirmoqchisiz.', o: [["Ulanib, parolimni kiritaman", 1, "Noma'lum tarmoqni hujumchi ham ochgan bo'lishi mumkin. Unda parol kiritmang."], ["Parol kiritishni kechiktiraman yoki telefonimning mobil internetidan foydalanaman", -1, "To'g'ri. Muhim akkauntlarga ishonchli tarmoqdan kiring."]] },
+  { i: '☁️', t: 'Bulutdagi loyiha faylini faqat Nodirga ulashishingiz kerak. Faylda telefon raqamlar bor.', o: [['"Havolasi bor har kim" qilib ulashaman', 3, "Havola tarqalsa, uni begonalar ham ochadi."], ["Faqat Nodirning akkauntiga ruxsat beraman", -1, "To'g'ri. Kerakli odamga kerakli ruxsatni bering, keyin tekshirib turing."]] },
+  { i: '🪟', t: "Sayt ochilganda birdan oyna chiqdi: \"Kompyuteringizda 5 virus! Mana shu dasturni yuklang!\"", o: [['Dasturni yuklayman', 0, "Bu qo'rqituvchi reklama. Yuklangan dasturning o'zi zararli bo'lishi mumkin."], ["Oynani yopaman va o'z antivirusim bilan tekshiraman", -1, "To'g'ri. Tekshiruvni o'zingiz o'rnatgan antivirus bilan qiling."]] },
+  { i: '🔄', t: "Tizim sozlamalari operatsion tizim uchun xavfsizlik yangilanishini taklif qildi.", o: [['Doim "keyinroq" deb bosaman', 0, "Yangilanish topilgan zaifliklarni yopadi. Kechiktirilsa, qurilma ochiq qoladi."], ['Ishimni saqlab, yangilanishni o\'rnataman', -1, "To'g'ri. Yangilanishlarni rasmiy tizim sozlamalaridan o'rnating."]] },
+  { i: '🏫', t: 'Maktab kompyuterida akkauntingizga kirdingiz. Dars tugadi.', o: [['Kompyuterni shunday qoldirib ketaman', 1, "Keyingi odam akkauntingizni ochiq holda topadi."], ['Akkauntdan chiqaman va parolni saqlamayman', -1, "To'g'ri. Umumiy kompyuterda doim akkauntdan chiqing."]] },
+  { i: '🚨', t: "Akkauntingizdan siz yozmagan xabarlar ketibdi. Birinchi nima qilasiz?", o: [["Parolni almashtiraman, 2FA yoqaman va kattalarga aytaman", -1, "To'g'ri. Tez harakat qiling, do'stlaringizni ham ogohlantiring."], ['Hech kimga aytmay, kutaman', 1, "Kutish hujumchiga vaqt beradi. U do'stlaringizni ham aldashi mumkin."], ["Xabardagi havolani ochib, kim yozganini bilaman", 1, "Bu havola zararli bo'lishi mumkin. Avval akkauntni himoya qiling."]] },
+];
+const MET = ['Qurilma', 'Akkaunt', "Ma'lumot", 'Bulut'];
+CH.push({
+  short: 'Xavfsiz kun', lesson: '6 va 19-dars · 8-bob', title: 'Bir kun: xavfsiz qaror qabul qiling',
+  intro: "Har vaziyatda eng xavfsiz yo'lni tanlang. Noto'g'ri qaror himoya ko'rsatkichini tushiradi va vaziyat qaytariladi.",
+  tasks: ['7 ta vaziyatdan o\'ting', 'Kunni barcha ko\'rsatkichlar 50% dan yuqori holda tugating'],
+  init: () => ({ i: 0, m: [100, 100, 100, 100], shake: 0 }),
+  tick(s, dt) { s.shake = Math.max(0, s.shake - dt * 2); },
+  draw(s) {
+    const end = s.i >= DAY.length, d = DAY[Math.min(s.i, DAY.length - 1)];
+    DAY.forEach((_, i) => { const x = 90 + i * 137, done = i < s.i; if (i < DAY.length - 1) line(x, 44, x + 137, 44, i < s.i ? COL.grn : 'rgba(255,255,255,.2)', 4); dot(x, 44, 17, done ? COL.grn : i === s.i ? COL.yel : COL.card2); tx(done ? '✓' : String(i + 1), x, 45, 15, done || i === s.i ? '#131a33' : '#fff', 'center', 800); });
+    const ox = Math.sin(s.shake * 30) * 8 * s.shake;
+    box(60 + ox, 84, 880, 240, COL.card, 'rgba(255,255,255,.12)');
+    if (end) { tx('🌙', 500, 150, 54, '#fff', 'center'); tx('Kun tugadi', 500, 216, 30, '#fff', 'center', 700); tx(s.m.every(v => v > 50) ? "Hamma narsa himoyalangan qoldi" : "Ba'zi xatolar qimmatga tushdi. Kunni qaytadan sinab ko'ring.", 500, 262, 19, s.m.every(v => v > 50) ? COL.grn : COL.yel, 'center', 500); }
+    else { tx(d.i, 500 + ox, 148, 62, '#fff', 'center'); wrap(d.t, 500 + ox, 222, 800, 23, '#fff', 33, 600, 'center'); }
+    MET.forEach((n, i) => { const x = 60 + i * 225, v = s.m[i], c = v > 50 ? COL.grn : v > 25 ? COL.yel : COL.red; box(x, 344, 205, 150, COL.card, 'rgba(255,255,255,.12)'); tx(n, x + 102, 378, 18, '#fff', 'center', 700); tx(`${v}%`, x + 102, 424, 32, c, 'center', 700); bar(x + 18, 460, 170, 12, v / 100, c); });
+  },
+  panel(el, s) {
+    if (s.i >= DAY.length) return;
+    const d = DAY[s.i];
+    el.append(h('div', { cls: 'seq' }, d.o.map(([t, m, why]) => h('button', { on: () => {
+      if (m < 0) { s.i++; if (s.i >= DAY.length) { mark(0); if (s.m.every(v => v > 50)) mark(1); } say(why, 'good'); }
+      else { s.m[m] = Math.max(0, s.m[m] - 30); s.shake = 1; say(why + " Qayta tanlang.", 'bad'); }
+    } }, t))));
+  },
+});
+
+/* ---------- 9. Sinov ---------- */
+const QS = [
+  ["O'yin deb yuklangan dastur ishlaydi, lekin yashirin kirish yo'lini ochadi. Bu nima?", ['Troyan', 'Virus', 'Antivirus'], "Foydali dastur niqobidagi zararli dastur troyan deyiladi."],
+  ['Ransomware fayllarni qulflasa, oldindan qilingan qaysi ish eng ko\'p yordam beradi?', ['Alohida saqlangan zaxira nusxa', "Ekran yorqinligini kamaytirish", "To'lovni tezda to'lash"], "Zaxira bo'lsa, fayllar to'lovsiz qaytadi. To'lov kafolat bermaydi."],
+  ['Antivirus bazasi nega yangilanadi?', ['Yangi xavflarning imzolarini tanish uchun', 'Kompyuter tezroq zaryadlanishi uchun', 'Ekran rangini almashtirish uchun'], "Bazada yo'q imzoni skaner tanimaydi."],
+  ['Qaysi parol eng kuchli?', ["ko'k-tarvuz-uchadi-yomg'irda", 'K#9x!', 'aziza2012'], "Uzun va oldindan taxmin qilib bo'lmaydigan ibora eng kuchli."],
+  ['Bitta parolni hamma saytda ishlatish nega xavfli?', ["Bir sayt sizsa, boshqalari ham ochilishi mumkin", 'Parol tezroq eskiradi', "Sayt sekin ishlaydi"], "Hujumchi sizib chiqqan parolni boshqa saytlarda ham sinaydi."],
+  ['Telefondagi 2FA kodini kimga aytish mumkin?', ['Hech kimga', 'Yordam xizmatiga', 'Yaqin do\'stga'], "Kod faqat sizning kirishingiz uchun. Uni so'ragan odam hujumchi bo'lishi mumkin."],
+  ['https://kitobgram.example.tekshir.example/kirish manzilining asosiy domeni qaysi?', ['tekshir.example', 'kitobgram.example', 'kirish'], "Domen / belgisidan oldingi oxirgi qismdan o'qiladi."],
+  ['Manzildagi qulf belgisi nimani bildiradi?', ['Ulanish shifrlanganini', 'Sayt albatta halol ekanini', 'Sayt pulli ekanini'], "Soxta sayt ham HTTPS ishlatishi mumkin."],
+  ['Raqamli iz nima?', ["Internetda qoldirgan ma'lumotlaringiz", 'Barmoq izi bilan kirish', 'Kompyuterdagi chang'], "Postlar, izohlar, rasmlar va faoliyat raqamli izni tashkil qiladi."],
+  ['Begona fleshka topsangiz, nima qilasiz?', ['Ulamasdan kattalarga berasiz', 'Maktab kompyuteriga ulaysiz', 'Uyda ochib ko\'rasiz'], "Noma'lum fleshkada zararli dastur bo'lishi mumkin."],
+];
+CH.push({
+  short: 'Sinov', lesson: 'Yakun', title: 'Yakuniy sinov', final: true, tasks: [],
+  init: () => ({ i: 0, score: 0, ans: null, over: false, opts: QS.map(q => shuffle(q[1])) }),
+  draw(s) {
+    tx('🛡️', 500, 170, 90, '#fff', 'center');
+    if (s.over) { tx(`${s.score} / ${QS.length}`, 500, 300, 64, COL.yel, 'center', 800); tx(s.score >= 8 ? "Ajoyib himoyachi!" : s.score >= 5 ? 'Yaxshi, xatolarni takrorlang' : "Boblarni qayta ko'rib chiqing", 500, 372, 24, '#fff', 'center', 600); }
+    else { tx(`Savol ${s.i + 1} / ${QS.length}`, 500, 290, 28, '#fff', 'center', 700); bar(250, 330, 500, 14, s.i / QS.length, COL.grn); tx(`Ball: ${s.score}`, 500, 382, 22, COL.yel, 'center', 700); }
+  },
+  panel(el, s) {
+    if (s.over) {
+      el.append(h('div', { cls: 'score' }, `${s.score}/${QS.length}`), h('p', null, 'Natija platformaga yuborildi.'), B('Qayta topshirish', () => { resetCh(CH[cur]); render(); }));
+      return;
+    }
+    const q = QS[s.i];
+    el.append(h('div', { cls: 'q' }, q[0]), h('div', { cls: 'seq' }, s.opts[s.i].map(o => h('button', { disabled: s.ans != null, cls: s.ans == null ? '' : o === q[1][0] ? 'ok' : o === s.ans ? 'no' : '', on: () => {
+      s.ans = o; const good = o === q[1][0]; if (good) s.score++;
+      say((good ? "To'g'ri. " : `Noto'g'ri. To'g'ri javob: ${q[1][0]}. `) + q[2], good ? 'good' : 'bad');
+    } }, o))));
+    if (s.ans != null) el.append(B(s.i + 1 < QS.length ? 'Keyingi savol' : 'Natijani ko\'rish', () => {
+      s.ans = null; CH[cur].fb = null; s.i++;
+      if (s.i >= QS.length) { s.over = true; try { parent.postMessage({ type: 'axvcl:result', score: s.score, max: QS.length }, '*'); } catch (e) {} }
+      render();
+    }));
+  },
+});
+
+/* ---------- Boshlash ---------- */
+$('#nojs').remove();
+$('#start').hidden = false;
+$('#go').onclick = () => { $('#start').hidden = true; $('#top').hidden = false; $('#app').hidden = false; resize(); goCh(0); };
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
